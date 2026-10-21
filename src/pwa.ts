@@ -20,7 +20,16 @@ export const useAppUpdate = create<AppUpdate>()((set, get) => ({
   available: false,
   dismissed: false,
   checking: false,
-  apply: () => void updateSW(true),
+  apply: () => {
+    // Si la versión nueva espera, se le pide tomar el control (recarga al lograrlo).
+    // Si ya está activa (p. ej. la página no estaba controlada) o no responde, se recarga igual.
+    if (registration?.waiting) {
+      void updateSW(true)
+      setTimeout(() => location.reload(), 3000)
+    } else {
+      location.reload()
+    }
+  },
   check: async () => {
     if (!registration) return false
     set({ checking: true })
