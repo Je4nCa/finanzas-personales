@@ -569,3 +569,86 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 .choice svg { display: block; }
 
 .income-amount .money-input .input { color: var(--green); }
+
+/* ---------- Mac / pantallas grandes ---------- */
+
+/* En el teléfono las columnas de Inicio no generan caja: el orden queda igual que antes. */
+.home-grid, .home-col { display: contents; }
+.home-col > * { animation: rise 0.5s var(--spring) both; }
+
+@media (min-width: 900px) {
+  .app { max-width: 1240px; padding: 0 32px 56px; }
+
+  /* Barra superior de vidrio a todo el ancho, como el dashboard de referencia. */
+  .header {
+    position: sticky; top: 0; z-index: 15; height: 78px; margin: 0 0 24px;
+    margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50% + 32px);
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border-bottom: 1px solid var(--line);
+  }
+  .header h1 { font-size: 22px; }
+
+  /* La barra de pestañas sube al centro de la barra superior. */
+  .tabbar { top: 8px; bottom: auto; z-index: 16; }
+
+  .month-nav { max-width: 440px; margin: 0 auto 22px; }
+
+  .screen-inicio .home-grid {
+    display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 22px; align-items: start;
+  }
+  .screen-inicio .home-col { display: block; }
+  .screen-inicio .home-col > :first-child { margin-top: 0 !important; }
+  .screen-inicio .home-col > .section-title:first-of-type { margin-top: 22px; }
+  .kpi .kpi-value { font-size: 26px; }
+  .gauge { width: 270px; }
+  .bars { height: 170px; }
+
+  .carousel {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+    margin: 0; padding: 0 0 16px; overflow: visible;
+  }
+  .carousel > * { width: auto; }
+
+  .screen-movimientos { max-width: 780px; margin-inline: auto; }
+
+  .screen-pagos .stack, .screen-tasacero .stack {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; align-items: start;
+  }
+  .screen-tasacero .stack > .section-title, .screen-tasacero .stack > .card:only-child { grid-column: 1 / -1; }
+  .screen-tarjetas .stack { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+
+  /* Botón "Agregar …" al pie de cada pantalla: centrado, no a todo el ancho. */
+  .screen > .pill-btn.block { width: auto; min-width: 300px; padding: 0 28px; margin: 24px auto 0; display: flex; }
+
+  /* Formularios como ventana centrada en vez de hoja desde abajo. */
+  .sheet {
+    inset: 0; margin: auto; width: min(540px, calc(100vw - 48px)); height: fit-content; max-height: 86vh;
+    border-radius: 28px; padding: 20px 24px 24px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--line);
+    animation: dialog-in 0.42s var(--spring) both;
+  }
+  .closing .sheet { animation: dialog-out 0.2s ease both; }
+  .sheet-grip { display: none; }
+  .sheet-grip-area { cursor: default; touch-action: auto; }
+  .sheet-backdrop { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+}
+
+@keyframes dialog-in { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
+@keyframes dialog-out { to { opacity: 0; transform: scale(0.97); } }
+
+/* Hover solo con mouse o trackpad: en el iPhone no aplica. */
+@media (hover: hover) and (pointer: fine) {
+  .list-item { border-radius: 12px; margin-inline: -8px; padding-inline: 8px; width: calc(100% + 16px); transition: background-color 0.15s ease, transform 0.35s var(--bounce); }
+  .list-item:hover { background: var(--surface-2); }
+  button.card, .carousel > button { transition: transform 0.35s var(--bounce), box-shadow 0.25s ease; }
+  button.card:hover, .carousel > button:hover { transform: translateY(-3px); }
+  .carousel > button:hover .cc { box-shadow: 0 16px 40px rgba(90, 80, 200, 0.28); }
+  .icon-btn:hover, .pill-btn.glass:hover, .choice:not(.on):hover { transform: translateY(-1px); }
+  .choice:not(.on):hover { border-color: var(--text-2); }
+  .tab:not(.active):hover { color: var(--text); }
+  .tab:not(.active):hover .tab-icon { transform: scale(1.08); }
+  .month-chip:hover { border-color: var(--line-strong); }
+  .bar-col:hover .bar-lbl { color: var(--text); }
+}

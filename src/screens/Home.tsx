@@ -36,91 +36,98 @@ export function Home({ goTo }: { goTo: (t: Tab) => void }) {
     <>
       <MonthNav />
 
-      <div className="grid-2">
-        <div className="card kpi">
-          <div className="kpi-top">
-            <IconTile><Wallet /></IconTile>Ingresos
+      {/* En el teléfono las columnas no existen (display: contents); en la Mac son dos. */}
+      <div className="home-grid">
+        <div className="home-col">
+          <div className="grid-2">
+            <div className="card kpi">
+              <div className="kpi-top">
+                <IconTile><Wallet /></IconTile>Ingresos
+              </div>
+              <div className="kpi-value"><Money amount={b.income} currency={base} compact /></div>
+              <div className="kpi-foot">
+                <Delta value={change(b.income, pb.income)} />
+                <span>vs mes ant.</span>
+              </div>
+            </div>
+            <div className="card kpi">
+              <div className="kpi-top">
+                <IconTile><Receipt /></IconTile>Gastos
+              </div>
+              <div className="kpi-value"><Money amount={b.expenses} currency={base} compact /></div>
+              <div className="kpi-foot">
+                <Delta value={change(b.expenses, pb.expenses)} invert />
+                <span>vs mes ant.</span>
+              </div>
+            </div>
           </div>
-          <div className="kpi-value"><Money amount={b.income} currency={base} compact /></div>
-          <div className="kpi-foot">
-            <Delta value={change(b.income, pb.income)} />
-            <span>vs mes ant.</span>
-          </div>
-        </div>
-        <div className="card kpi">
-          <div className="kpi-top">
-            <IconTile><Receipt /></IconTile>Gastos
-          </div>
-          <div className="kpi-value"><Money amount={b.expenses} currency={base} compact /></div>
-          <div className="kpi-foot">
-            <Delta value={change(b.expenses, pb.expenses)} invert />
-            <span>vs mes ant.</span>
-          </div>
-        </div>
-      </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="card-head">
-          <span className="title">Balance del mes</span>
-          {hasActivity && <span className={`chip ${status.tone === 'red' ? 'red' : status.tone === 'green' ? 'green' : ''}`}>{status.label}</span>}
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="card-head">
+              <span className="title">Balance del mes</span>
+              {hasActivity && <span className={`chip ${status.tone === 'red' ? 'red' : status.tone === 'green' ? 'green' : ''}`}>{status.label}</span>}
+            </div>
+            <Gauge
+              value={b.budget > 0 ? 1 - Math.min(1, b.usage) : 0}
+              label={b.free >= 0 ? 'Te queda libre' : 'Te falta'}
+              display={formatMoney(Math.abs(b.free), base, { compact: true })}
+              color={b.free < 0 ? 'var(--red)' : 'var(--purple)'}
+            />
+            <div className="divider" />
+            <div className="stats-3">
+              <div><span className="lbl">Variables</span><span className="val"><Money amount={b.byKind.variable} currency={base} compact /></span></div>
+              <div><span className="lbl">Fijos</span><span className="val"><Money amount={b.byKind.fijo} currency={base} compact /></span></div>
+              <div><span className="lbl">Tasa cero</span><span className="val"><Money amount={b.byKind.cuota} currency={base} compact /></span></div>
+            </div>
+            <div className="divider" />
+            <div className="row" style={{ marginBottom: 10 }}>
+              <span className="card-label">Presupuesto usado</span>
+              <span className="spacer" />
+              <span className="num" style={{ fontWeight: 600 }}>
+                {Number.isFinite(b.usage) ? `${Math.round(b.usage * 100)}%` : '—'}
+              </span>
+              <span className="card-label">de <Money amount={b.budget} currency={base} compact /></span>
+            </div>
+            <Progress value={b.usage} tone={status.tone === 'green' ? 'purple' : status.tone} />
+            {b.budget === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>Registrá tus ingresos de la quincena para ver cuánto te queda.</div>}
+          </div>
         </div>
-        <Gauge
-          value={b.budget > 0 ? 1 - Math.min(1, b.usage) : 0}
-          label={b.free >= 0 ? 'Te queda libre' : 'Te falta'}
-          display={formatMoney(Math.abs(b.free), base, { compact: true })}
-          color={b.free < 0 ? 'var(--red)' : 'var(--purple)'}
-        />
-        <div className="divider" />
-        <div className="stats-3">
-          <div><span className="lbl">Variables</span><span className="val"><Money amount={b.byKind.variable} currency={base} compact /></span></div>
-          <div><span className="lbl">Fijos</span><span className="val"><Money amount={b.byKind.fijo} currency={base} compact /></span></div>
-          <div><span className="lbl">Tasa cero</span><span className="val"><Money amount={b.byKind.cuota} currency={base} compact /></span></div>
-        </div>
-        <div className="divider" />
-        <div className="row" style={{ marginBottom: 10 }}>
-          <span className="card-label">Presupuesto usado</span>
-          <span className="spacer" />
-          <span className="num" style={{ fontWeight: 600 }}>
-            {Number.isFinite(b.usage) ? `${Math.round(b.usage * 100)}%` : '—'}
-          </span>
-          <span className="card-label">de <Money amount={b.budget} currency={base} compact /></span>
-        </div>
-        <Progress value={b.usage} tone={status.tone === 'green' ? 'purple' : status.tone} />
-        {b.budget === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>Registrá tus ingresos de la quincena para ver cuánto te queda.</div>}
-      </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="actions">
-          {ACTIONS.map((a) => (
-            <button key={a.label} className="action" onClick={() => open({ kind: data.cards.length || a.kind !== 'payment' ? a.kind : 'card', preset: a.preset })}>
-              <span className="icon-btn glass"><a.icon /></span>
-              {a.label}
+        <div className="home-col">
+          <div className="card home-actions" style={{ marginTop: 12 }}>
+            <div className="actions">
+              {ACTIONS.map((a) => (
+                <button key={a.label} className="action" onClick={() => open({ kind: data.cards.length || a.kind !== 'payment' ? a.kind : 'card', preset: a.preset })}>
+                  <span className="icon-btn glass"><a.icon /></span>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="section-title">
+            Tus tarjetas
+            <button className="pill-btn glass" onClick={() => open({ kind: 'card' })}>
+              <Plus /> Agregar
             </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="section-title">
-        Tus tarjetas
-        <button className="pill-btn glass" onClick={() => open({ kind: 'card' })}>
-          <Plus /> Agregar
-        </button>
-      </div>
-      {data.cards.length === 0 ? (
-        <button className="card" style={{ width: '100%', textAlign: 'center', color: 'var(--muted)', padding: 28 }} onClick={() => open({ kind: 'card' })}>
-          Agregá tu primera tarjeta con su día de cierre y de pago.
-        </button>
-      ) : (
-        <div className="carousel">
-          {summaries.map((s) => (
-            <button key={s.card.id} onClick={() => goTo('pagos')} style={{ textAlign: 'left' }}>
-              <CreditCard card={s.card} label={`A pagar · vence ${dayInMonthLabel(month, s.card.paymentDay)}`} amount={s.owedBase} currency={base} />
+          </div>
+          {data.cards.length === 0 ? (
+            <button className="card" style={{ width: '100%', textAlign: 'center', color: 'var(--muted)', padding: 28 }} onClick={() => open({ kind: 'card' })}>
+              Agregá tu primera tarjeta con su día de cierre y de pago.
             </button>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="carousel">
+              {summaries.map((s) => (
+                <button key={s.card.id} onClick={() => goTo('pagos')} style={{ textAlign: 'left' }}>
+                  <CreditCard card={s.card} label={`A pagar · vence ${dayInMonthLabel(month, s.card.paymentDay)}`} amount={s.owedBase} currency={base} />
+                </button>
+              ))}
+            </div>
+          )}
 
-      <History data={data} month={month} />
+          <History data={data} month={month} />
+        </div>
+      </div>
     </>
   )
 }

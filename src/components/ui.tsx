@@ -131,7 +131,8 @@ export function Sheet({ title, onClose, children, actions }: { title: string; on
 
   // Arrastrar desde la manija para cerrar, como los sheets de iOS. Solo se mueve transform.
   const onPointerDown = (e: ReactPointerEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return
+    // Con mouse (Mac) el formulario es una ventana centrada: no se arrastra.
+    if (e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button')) return
     drag.current = { startY: e.clientY, dy: 0, t: performance.now() }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     sheetRef.current?.classList.add('dragging')

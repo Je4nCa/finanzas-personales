@@ -180,6 +180,8 @@ export function QuickAdd({ preset }: SheetState) {
             setOver((o) => ({ kind: o.kind }))
           }}
           placeholder={`Ej. ${EXAMPLES[0]}`}
+          // En la Mac (mouse/trackpad) se escribe directo; en el iPhone no se abre el teclado solo.
+          autoFocus={matchMedia('(pointer: fine)').matches}
           enterKeyHint="done"
           onKeyDown={(e) => e.key === 'Enter' && valid && save()}
         />

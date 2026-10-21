@@ -6,7 +6,8 @@ import { Home } from './screens/Home'
 import { Installments } from './screens/Installments'
 import { Movements } from './screens/Movements'
 import { Payments } from './screens/Payments'
-import { useData } from './store/store'
+import { addMonths } from './domain/dates'
+import { useData, useUi } from './store/store'
 import { useOverlay } from './store/ui'
 
 export type Tab = 'inicio' | 'movimientos' | 'pagos' | 'tasacero' | 'tarjetas'
@@ -45,6 +46,28 @@ export default function App() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0c0c0f' : '#f2f2f4')
   }, [theme])
 
+  // Atajos para la Mac: ⌘K agrega, ⌘, abre Ajustes, ← → cambian de mes, 1–5 cambian de pestaña.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = (e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')
+      const sheetOpen = useOverlay.getState().sheet !== null
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        open({ kind: 'quick' })
+      } else if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault()
+        open({ kind: 'settings' })
+      } else if (!typing && !sheetOpen && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const { month, setMonth } = useUi.getState()
+        if (e.key === 'ArrowLeft') setMonth(addMonths(month, -1))
+        else if (e.key === 'ArrowRight') setMonth(addMonths(month, 1))
+        else if (/^[1-5]$/.test(e.key)) goTo(TABS[Number(e.key) - 1].id)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   const goTo = (t: Tab) => {
     setTab(t)
     window.scrollTo({ top: 0 })
@@ -53,7 +76,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <button className="icon-btn glass" onClick={() => open({ kind: 'settings' })} aria-label="Ajustes">
+        <button className="icon-btn glass" onClick={() => open({ kind: 'settings' })} aria-label="Ajustes" title="Ajustes (⌘,)">
           <SlidersHorizontal />
         </button>
         <h1>
@@ -66,12 +89,12 @@ export default function App() {
             TABS.find((t) => t.id === tab)!.label
           )}
         </h1>
-        <button className="icon-btn glass" onClick={() => open({ kind: 'quick' })} aria-label="Agregar por voz">
+        <button className="icon-btn glass" onClick={() => open({ kind: 'quick' })} aria-label="Agregar por voz" title="Agregar gasto o ingreso (⌘K)">
           <Mic />
         </button>
       </header>
 
-      <main className="screen" key={tab}>
+      <main className={`screen screen-${tab}`} key={tab}>
         {tab === 'inicio' && <Home goTo={goTo} />}
         {tab === 'movimientos' && <Movements />}
         {tab === 'pagos' && <Payments />}
