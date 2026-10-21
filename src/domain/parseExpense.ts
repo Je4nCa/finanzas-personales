@@ -353,9 +353,12 @@ export function parseExpense(rawText: string, ctx: ParseContext): ParsedExpense 
   const keywordCategory = categoryFromKeywords(description) ?? categoryFromKeywords(text)
   const category = past?.category ?? keywordCategory ?? 'Otros'
 
-  let currency: Currency = symbolCurrency ?? amount?.currency ?? past?.currency ?? ctx.baseCurrency
+  // Sin moneda dicha: la de la tarjeta si tiene una sola, si no la del historial o la principal.
+  const resolvedCard = ctx.cards.find((c) => c.id === (cardId !== undefined ? cardId : past?.cardId))
+  const cardCur = resolvedCard?.currency && resolvedCard.currency !== 'both' ? resolvedCard.currency : undefined
+  let currency: Currency = symbolCurrency ?? amount?.currency ?? cardCur ?? past?.currency ?? ctx.baseCurrency
   // En Costa Rica nadie paga ₡25 por algo: un monto chico sin moneda casi seguro son dólares.
-  if (!symbolCurrency && !amount?.currency && !past && ctx.baseCurrency === 'CRC' && amount && amount.value < 300) currency = 'USD'
+  if (!symbolCurrency && !amount?.currency && !cardCur && !past && ctx.baseCurrency === 'CRC' && amount && amount.value < 300) currency = 'USD'
 
   return {
     kind: 'expense',

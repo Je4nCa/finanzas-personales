@@ -14,6 +14,9 @@ export type CardBank = 'bac' | 'wink' | null
 /** Crédito: tiene cierre y fecha de pago. Débito y cuenta: el gasto cuenta en el mes de la compra. */
 export type CardKind = 'credit' | 'debit' | 'account'
 
+/** Moneda en que cobra la tarjeta; "both" = bimoneda (saldos en ₡ y $ por separado). */
+export type CardCurrency = Currency | 'both'
+
 export interface Card {
   id: string
   /** Nombre como lo llama el banco (p. ej. el del estado de cuenta). */
@@ -22,6 +25,8 @@ export interface Card {
   nickname?: string | null
   /** Ausente = crédito. */
   kind?: CardKind
+  /** Ausente = bimoneda. */
+  currency?: CardCurrency
   lastFour: string
   /** Día del mes en que cierra el estado de cuenta (1–31). Solo crédito. */
   closingDay: number

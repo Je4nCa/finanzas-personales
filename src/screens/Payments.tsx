@@ -1,11 +1,11 @@
 import { Check, ChevronDown, CreditCard as CardIcon } from 'lucide-react'
 import { useState } from 'react'
 import { dateLabel, dayInMonthLabel, monthLabel, todayKey } from '../domain/dates'
-import { cardLabel } from '../domain/cards'
-import { sumByCurrency, toBase, type CardMonthSummary, type Charge } from '../domain/finance'
-import type { Currency, ExpenseScope, Settings } from '../domain/types'
+import { amountsFor, cardCurrency, cardLabel } from '../domain/cards'
+import { sumByCurrency, toBase, type ByCurrency, type CardMonthSummary, type Charge } from '../domain/finance'
+import type { CardCurrency, Currency, ExpenseScope, Settings } from '../domain/types'
 import { ExpenseIcon, NetworkLogo, networkOf } from '../components/logos'
-import { cardSwatch, Empty, Money, MonthNav, Progress, SCOPES } from '../components/ui'
+import { Amounts, cardSwatch, Empty, Money, MonthNav, Progress, SCOPES } from '../components/ui'
 import { newId, useData } from '../store/store'
 import { useOverlay } from '../store/ui'
 import { useMonthView } from '../store/useMonth'
@@ -19,8 +19,7 @@ export function Payments() {
   const totalOwed = summaries.reduce((t, s) => t + s.owedBase, 0)
   const owedUSD = summaries.reduce((t, s) => t + s.owed.USD, 0)
   const owedCRC = summaries.reduce((t, s) => t + s.owed.CRC, 0)
-  const together = scopeTotals(summaries.flatMap((s) => s.charges), data.settings)
-  const togetherTotal = together.pareja + together.casa
+  const together = togetherAmounts(summaries.flatMap((s) => s.charges))
 
   return (
     <>
@@ -29,17 +28,23 @@ export function Payments() {
         <div className="kpi-top">
           <span className="icon-tile"><CardIcon /></span>Total a pagar en {monthLabel(month)}
         </div>
-        <div className="kpi-value" style={{ fontSize: 30 }}><Money amount={totalOwed} currency={base} /></div>
+        {/* En la moneda de cada estado de cuenta, sin convertir. */}
+        <div className="kpi-value" style={{ fontSize: owedCRC > 0 && owedUSD > 0 ? 24 : 30 }}>
+          <Amounts items={amountsFor({ CRC: owedCRC, USD: owedUSD })} />
+        </div>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {owedCRC > 0 && <span className="chip purple"><Money amount={owedCRC} currency="CRC" /></span>}
-          {owedUSD > 0 && <span className="chip purple"><Money amount={owedUSD} currency="USD" /></span>}
+          {owedCRC > 0 && owedUSD > 0 && (
+            <span className="chip">
+              ≈ <Money amount={totalOwed} currency={base} compact /> en total
+            </span>
+          )}
           {totalOwed === 0 && summaries.some((s) => s.billedBase > 0) && <span className="chip green"><Check size={12} /> Todo pagado</span>}
         </div>
-        {togetherTotal !== 0 && (
+        {(together.CRC !== 0 || together.USD !== 0) && (
           <div className="together-pill">
             <span>Pagan juntos (pareja + casa)</span>
-            <strong className="num">
-              <Money amount={togetherTotal} currency={base} />
+            <strong>
+              <Amounts items={amountsFor(together)} />
             </strong>
           </div>
         )}
@@ -125,12 +130,12 @@ function CardPaymentCard({ s }: { s: CardMonthSummary }) {
           <Progress value={s.billedBase > 0 ? paidBase / s.billedBase : 0} tone="green" thin />
           {currencies.length > 1 && (
             <div className="row" style={{ marginTop: 10, fontSize: 13 }}>
-              <span className="card-label">Pendiente total</span>
+              <span className="card-label">Todo junto, al tipo de cambio</span>
               <span className="spacer" />
-              <strong className="num"><Money amount={s.owedBase} currency={base} /></strong>
+              <span className="num card-label">≈ <Money amount={s.owedBase} currency={base} /></span>
             </div>
           )}
-          <ScopeSplit charges={s.charges} settings={data.settings} />
+          <ScopeSplit charges={s.charges} settings={data.settings} preferred={cardCurrency(s.card)} />
         </>
       )}
 
@@ -190,20 +195,24 @@ function CardPaymentCard({ s }: { s: CardMonthSummary }) {
   )
 }
 
-/** Total del estado por tipo de gasto, en la moneda principal. */
+/** Total del estado por tipo de gasto (en la moneda principal, solo para las proporciones de la barra). */
 function scopeTotals(charges: Charge[], settings: Settings): Record<ExpenseScope, number> {
   const t = { personal: 0, casa: 0, pareja: 0 }
   for (const sc of Object.keys(t) as ExpenseScope[]) t[sc] = toBase(sumByCurrency(charges.filter((c) => c.scope === sc)), settings)
   return t
 }
 
+/** Lo compartido (pareja + casa) en cada moneda, sin convertir. */
+function togetherAmounts(charges: Charge[]): ByCurrency {
+  return sumByCurrency(charges.filter((c) => c.scope === 'pareja' || c.scope === 'casa'))
+}
+
 /** Cuánto del estado de la tarjeta es de la pareja, de la casa y personal; lo compartido se paga entre los dos. */
-function ScopeSplit({ charges, settings }: { charges: Charge[]; settings: Settings }) {
+function ScopeSplit({ charges, settings, preferred }: { charges: Charge[]; settings: Settings; preferred: CardCurrency }) {
   const t = scopeTotals(charges, settings)
   const total = t.personal + t.casa + t.pareja
   if (total <= 0 || t.personal === total) return null
-  const base = settings.baseCurrency
-  const mixed = charges.some((c) => c.currency !== base)
+  const by = (sc: ExpenseScope) => amountsFor(sumByCurrency(charges.filter((c) => c.scope === sc)), preferred)
   return (
     <div className="scope-split">
       <div className="scope-bar" aria-hidden>
@@ -215,16 +224,16 @@ function ScopeSplit({ charges, settings }: { charges: Charge[]; settings: Settin
             <span className="lbl">
               <span className={`scope-dot ${s.value}`} /> {s.label}
             </span>
-            <span className="val num">
-              <Money amount={t[s.value]} currency={base} compact />
+            <span className="val">
+              <Amounts items={by(s.value)} compact />
             </span>
           </div>
         ))}
       </div>
       <div className="together-pill">
-        <span>Pagan juntos (pareja + casa){mixed ? ' · al tipo de cambio' : ''}</span>
-        <strong className="num">
-          <Money amount={t.pareja + t.casa} currency={base} />
+        <span>Pagan juntos (pareja + casa)</span>
+        <strong>
+          <Amounts items={amountsFor(togetherAmounts(charges), preferred)} />
         </strong>
       </div>
     </div>

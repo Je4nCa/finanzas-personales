@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Wallet, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Lock, Wallet, X } from 'lucide-react'
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, monthLabel } from '../domain/dates'
 import { formatMoney } from '../domain/finance'
@@ -78,7 +78,7 @@ export function Segmented<T extends string>({
   )
 }
 
-export function CreditCard({ card, label, amount, currency }: { card: Card; label: string; amount: number; currency: Currency }) {
+export function CreditCard({ card, label, amounts }: { card: Card; label: string; amounts: { amount: number; currency: Currency }[] }) {
   return (
     <div className={`cc cc-theme-${card.theme % 6}`}>
       <div className="cc-top">
@@ -93,7 +93,12 @@ export function CreditCard({ card, label, amount, currency }: { card: Card; labe
           <div className="spacer">
             <div className="cc-label">{label}</div>
             <div className="cc-amount">
-              <Money amount={amount} currency={currency} />
+              <Money amount={amounts[0].amount} currency={amounts[0].currency} />
+              {amounts.slice(1).map((m) => (
+                <span key={m.currency} className="cc-amount-extra">
+                  {' '}+ <Money amount={m.amount} currency={m.currency} />
+                </span>
+              ))}
             </div>
             <div className="cc-num">•••• {card.lastFour || '0000'}</div>
           </div>
@@ -198,12 +203,15 @@ export function MoneyInput({
   onAmount,
   onCurrency,
   autoFocus,
+  locked,
 }: {
   amount: string
   currency: Currency
   onAmount: (v: string) => void
   onCurrency: (c: Currency) => void
   autoFocus?: boolean
+  /** La tarjeta cobra en una sola moneda: no se puede cambiar. */
+  locked?: boolean
 }) {
   return (
     <div className="money-input">
@@ -215,15 +223,36 @@ export function MoneyInput({
         autoFocus={autoFocus}
         onChange={(e) => onAmount(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))}
       />
-      <Segmented
-        value={currency}
-        onChange={onCurrency}
-        options={[
-          { value: 'CRC', label: '₡' },
-          { value: 'USD', label: '$' },
-        ]}
-      />
+      {locked ? (
+        <div className="currency-lock" title="Moneda de la tarjeta">
+          {currency === 'USD' ? '$' : '₡'}
+          <Lock />
+        </div>
+      ) : (
+        <Segmented
+          value={currency}
+          onChange={onCurrency}
+          options={[
+            { value: 'CRC', label: '₡' },
+            { value: 'USD', label: '$' },
+          ]}
+        />
+      )}
     </div>
+  )
+}
+
+/** Montos en sus monedas, sin convertir: "₡5,000 + $12.00". */
+export function Amounts({ items, compact }: { items: { amount: number; currency: Currency }[]; compact?: boolean }) {
+  return (
+    <span className="num">
+      {items.map((m, i) => (
+        <span key={m.currency}>
+          {i > 0 && <span className="amount-plus"> + </span>}
+          {formatMoney(m.amount, m.currency, { compact })}
+        </span>
+      ))}
+    </span>
   )
 }
 

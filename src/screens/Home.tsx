@@ -1,5 +1,6 @@
 import { ArrowDownLeft, CalendarClock, HandCoins, Plus, Receipt, Repeat, ShoppingBag, Wallet } from 'lucide-react'
 import { useMemo } from 'react'
+import { amountsFor, cardCurrency } from '../domain/cards'
 import { addMonths, dayInMonthLabel, monthShort } from '../domain/dates'
 import { formatMoney, monthBalance } from '../domain/finance'
 import type { AppData, MonthKey } from '../domain/types'
@@ -119,7 +120,7 @@ export function Home({ goTo }: { goTo: (t: Tab) => void }) {
             <div className="carousel">
               {summaries.map((s) => (
                 <button key={s.card.id} onClick={() => goTo('pagos')} style={{ textAlign: 'left' }}>
-                  <CreditCard card={s.card} label={`A pagar · vence ${dayInMonthLabel(month, s.card.paymentDay)}`} amount={s.owedBase} currency={base} />
+                  <CreditCard card={s.card} label={`A pagar · vence ${dayInMonthLabel(month, s.card.paymentDay)}`} amounts={amountsFor(s.owed, cardCurrency(s.card))} />
                 </button>
               ))}
             </div>

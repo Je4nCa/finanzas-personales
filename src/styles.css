@@ -797,3 +797,13 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 .version-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--muted); }
 
 .nickname-note { font-size: 12px; margin-top: 8px; }
+
+/* ---------- Moneda de la tarjeta ---------- */
+
+.currency-lock {
+  flex: none; width: 116px; height: 58px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--seg-bg); font-size: 18px; font-weight: 600; color: var(--text);
+}
+.currency-lock svg { width: 14px; height: 14px; color: var(--muted); }
+.amount-plus { color: var(--muted); font-weight: 450; }
+.cc .cc-amount-extra { font-size: 16px; font-weight: 600; opacity: 0.85; }

@@ -4,7 +4,7 @@ import { cardLabel, isCredit, KIND_LABEL } from '../domain/cards'
 import { dateLabel, monthLabel } from '../domain/dates'
 import { formatMoney } from '../domain/finance'
 import { suggestFor } from '../domain/parseExpense'
-import type { Card, CardNetwork, Currency, Expense, ExpenseScope, Income } from '../domain/types'
+import type { Card, CardCurrency, CardNetwork, Currency, Expense, ExpenseScope, Income } from '../domain/types'
 import type { Statement, StatementGroup, StatementRow } from '../lib/statements'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay } from '../store/ui'
@@ -266,6 +266,13 @@ const plasticLast4 = (g: StatementGroup) => (BRAND_NETWORK[g.brand] === 'amex' &
 
 const exact = (n: number, c: Currency) => `${c === 'USD' ? '$' : '₡'}${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+function statementCurrency(g: StatementGroup): CardCurrency {
+  const used = new Set(g.rows.filter((r) => r.section !== 'interes').map((r) => r.currency))
+  if (g.declaredTotals?.USD) used.add('USD')
+  if (g.declaredTotals?.CRC) used.add('CRC')
+  return used.size === 1 ? [...used][0] : 'both'
+}
+
 function newCardFor(g: StatementGroup, theme: number): Card {
   const network = BRAND_NETWORK[g.brand] ?? null
   const closing = g.closingDate ? Number(g.closingDate.slice(8, 10)) : 1
@@ -280,6 +287,8 @@ function newCardFor(g: StatementGroup, theme: number): Card {
     theme: theme % 6,
     network,
     bank: 'bac',
+    // La moneda la decide el estado: si solo trae colones (o solo dólares), la tarjeta queda en esa.
+    currency: statementCurrency(g),
   }
 }
 

@@ -75,6 +75,12 @@ describe('parseExpense', () => {
     expect(parseExpense('gasolina 20 mil con la morada', { ...ctx, cards })).toMatchObject({ cardId: 'nk', description: 'Gasolina' })
   })
 
+  it('sin moneda dicha usa la de la tarjeta', () => {
+    const cards = ctx.cards.map((c) => (c.id === 'bac' ? { ...c, currency: 'CRC' as const } : c))
+    expect(parseExpense('Netflix 15 con la BAC', { ...ctx, cards }).currency).toBe('CRC')
+    expect(parseExpense('Netflix 15 dólares con la BAC', { ...ctx, cards }).currency).toBe('USD')
+  })
+
   it('miles con coma y últimos 4 dígitos', () => {
     expect(p('Ferretería EPA 32,000 con la 8841')).toMatchObject({ amount: 32000, cardId: 'bcr', category: 'Hogar', description: 'Ferretería EPA' })
   })

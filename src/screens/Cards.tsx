@@ -1,6 +1,6 @@
-import { isCredit, KIND_LABEL } from '../domain/cards'
+import { amountsFor, cardCurrency, isCredit, KIND_LABEL } from '../domain/cards'
 import { addMonths, currentMonth, dayInMonthLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
-import { cardSummaries, chargesForMonth, paymentMonthFor, sumByCurrency, toBase } from '../domain/finance'
+import { cardSummaries, chargesForMonth, paymentMonthFor, sumByCurrency } from '../domain/finance'
 import type { AppData, Card } from '../domain/types'
 import { CreditCard, Empty } from '../components/ui'
 import { useAppData } from '../store/store'
@@ -47,10 +47,10 @@ function CreditCardItem({ card: c, data, onOpen }: { card: Card; data: AppData; 
   const today = todayKey()
   // Próximo vencimiento que aún no pasó.
   const nextPay = parseDate(today).day <= c.paymentDay ? currentMonth() : addMonths(currentMonth(), 1)
-  const owed = cardSummaries({ ...data, cards: [c] }, nextPay)[0].owedBase
+  const owed = cardSummaries({ ...data, cards: [c] }, nextPay)[0].owed
   return (
     <button className="card" style={{ textAlign: 'left', padding: 12 }} onClick={onOpen}>
-      <CreditCard card={c} label={`Próximo pago · ${dayInMonthLabel(nextPay, c.paymentDay)}`} amount={owed} currency={data.settings.baseCurrency} />
+      <CreditCard card={c} label={`Próximo pago · ${dayInMonthLabel(nextPay, c.paymentDay)}`} amounts={amountsFor(owed, cardCurrency(c))} />
       <div className="stats-3" style={{ marginTop: 12 }}>
         <div><span className="lbl">Cierre</span><span className="val">Día {c.closingDay}</span></div>
         <div><span className="lbl">Pago</span><span className="val">Día {c.paymentDay}</span></div>
@@ -66,11 +66,11 @@ function CreditCardItem({ card: c, data, onOpen }: { card: Card; data: AppData; 
 
 function DebitItem({ card: c, data, onOpen }: { card: Card; data: AppData; onOpen: () => void }) {
   const month = currentMonth()
-  const spent = toBase(sumByCurrency(chargesForMonth(data, month).filter((x) => x.cardId === c.id)), data.settings)
+  const spent = sumByCurrency(chargesForMonth(data, month).filter((x) => x.cardId === c.id))
   const kind = KIND_LABEL[c.kind ?? 'credit']
   return (
     <button className="card" style={{ textAlign: 'left', padding: 12 }} onClick={onOpen}>
-      <CreditCard card={c} label={`${kind} · gastado en ${monthLabel(month).split(' ')[0]}`} amount={spent} currency={data.settings.baseCurrency} />
+      <CreditCard card={c} label={`${kind} · gastado en ${monthLabel(month).split(' ')[0]}`} amounts={amountsFor(spent, cardCurrency(c))} />
       <div className="row" style={{ marginTop: 10, fontSize: 13 }}>
         <span className="chip">{kind}</span>
         {c.nickname && <span className="card-label">En el banco: {c.name}</span>}

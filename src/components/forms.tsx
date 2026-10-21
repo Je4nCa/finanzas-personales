@@ -1,9 +1,9 @@
 import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, dateLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
-import { cardLabel, isCredit, KIND_LABEL } from '../domain/cards'
+import { cardLabel, CURRENCY_LABEL, fixedCurrency, isCredit, KIND_LABEL } from '../domain/cards'
 import { formatMoney, paymentMonthFor } from '../domain/finance'
-import type { Card, CardBank, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment } from '../domain/types'
+import type { Card, CardBank, CardCurrency, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment } from '../domain/types'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { cardSwatch, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
@@ -94,6 +94,9 @@ function ExpenseForm({ id, preset }: SheetState) {
   const [category, setCategory] = useState(existing?.category ?? p.category ?? 'Comida')
   const [scope, setScope] = useState<ExpenseScope>(existing?.scope ?? p.scope ?? 'personal')
   const card = cards.find((c) => c.id === cardId)
+  // Tarjeta de una sola moneda: el gasto queda sí o sí en esa moneda.
+  const lockCur = fixedCurrency(card)
+  const cur = lockCur ?? currency
   const n = parseAmount(amount)
   // Un gasto importado conserva el mes de pago del estado de cuenta mientras no cambie de tarjeta.
   const fixedMonth = existing?.paymentMonth && existing.cardId === cardId ? existing.paymentMonth : null
@@ -109,7 +112,7 @@ function ExpenseForm({ id, preset }: SheetState) {
           id: existing?.id ?? newId(),
           description: description.trim(),
           amount: n! * sign,
-          currency,
+          currency: cur,
           date,
           cardId,
           category,
@@ -118,7 +121,7 @@ function ExpenseForm({ id, preset }: SheetState) {
         } satisfies Expense)
       }
     >
-      <MoneyInput amount={amount} currency={currency} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
+      <MoneyInput amount={amount} currency={cur} locked={!!lockCur} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
       <Field label="Descripción">
         <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. Súper, gasolina…" />
       </Field>
@@ -166,6 +169,8 @@ function FixedForm({ id, preset }: SheetState) {
   const [startMonth, setStartMonth] = useState(existing?.startMonth ?? month)
   const [endMonth, setEndMonth] = useState(existing?.endMonth ?? '')
   const [scope, setScope] = useState<ExpenseScope>(existing?.scope ?? 'personal')
+  const lockCur = fixedCurrency(cards.find((c) => c.id === cardId))
+  const cur = lockCur ?? currency
   const n = parseAmount(amount)
 
   return (
@@ -178,7 +183,7 @@ function FixedForm({ id, preset }: SheetState) {
           id: existing?.id ?? newId(),
           description: description.trim(),
           amount: n!,
-          currency,
+          currency: cur,
           cardId,
           startMonth,
           endMonth: endMonth || null,
@@ -186,7 +191,7 @@ function FixedForm({ id, preset }: SheetState) {
         } satisfies FixedExpense)
       }
     >
-      <MoneyInput amount={amount} currency={currency} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
+      <MoneyInput amount={amount} currency={cur} locked={!!lockCur} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
       <Field label="Descripción">
         <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. Netflix, internet…" />
       </Field>
@@ -223,6 +228,8 @@ function InstallmentForm({ id, preset }: SheetState) {
   const [scope, setScope] = useState<ExpenseScope>(existing?.scope ?? 'personal')
   const card = cards.find((c) => c.id === cardId)
   const [firstMonth, setFirstMonth] = useState(existing?.firstMonth ?? (card ? paymentMonthFor(card, todayKey()) : currentMonth()))
+  const lockCur = fixedCurrency(card)
+  const cur = lockCur ?? currency
   const n = parseAmount(amount)
   const m = parseInt(months, 10)
   const validMonths = Number.isInteger(m) && m >= 1 && m <= 120
@@ -237,7 +244,7 @@ function InstallmentForm({ id, preset }: SheetState) {
           id: existing?.id ?? newId(),
           description: description.trim(),
           total: n!,
-          currency,
+          currency: cur,
           cardId,
           months: m,
           firstMonth,
@@ -247,7 +254,7 @@ function InstallmentForm({ id, preset }: SheetState) {
       }
     >
       <Field label="Monto total del producto">
-        <MoneyInput amount={amount} currency={currency} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
+        <MoneyInput amount={amount} currency={cur} locked={!!lockCur} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
       </Field>
       <Field label="Producto">
         <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. iPhone, refrigeradora…" />
@@ -262,7 +269,7 @@ function InstallmentForm({ id, preset }: SheetState) {
           <input className="input" style={{ width: 80, height: 40, flex: 'none' }} inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value.replace(/\D/g, ''))} />
         </div>
       </Field>
-      {n && validMonths && <Hint>Cuota mensual: {formatMoney(n / m, currency)}</Hint>}
+      {n && validMonths && <Hint>Cuota mensual: {formatMoney(n / m, cur)}</Hint>}
       <Field label="Tarjeta">
         <CardPicker
           cards={cards}
@@ -347,6 +354,8 @@ function PaymentForm({ id, preset }: SheetState) {
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? (preset?.currency as Currency) ?? settings.baseCurrency)
   const [date, setDate] = useState(existing?.date ?? todayKey())
   const month = existing?.month ?? uiMonth
+  const lockCur = fixedCurrency(cards.find((c) => c.id === cardId))
+  const cur = lockCur ?? currency
   const n = parseAmount(amount)
 
   return (
@@ -354,10 +363,10 @@ function PaymentForm({ id, preset }: SheetState) {
       title={existing ? 'Editar abono' : 'Registrar abono'}
       valid={!!n && !!cardId && !!date}
       onDelete={existing && (() => remove('payments', existing.id))}
-      onSubmit={() => upsert('payments', { id: existing?.id ?? newId(), cardId: cardId!, month, amount: n!, currency, date } satisfies CardPayment)}
+      onSubmit={() => upsert('payments', { id: existing?.id ?? newId(), cardId: cardId!, month, amount: n!, currency: cur, date } satisfies CardPayment)}
     >
       <Hint>Aplica al pago de {monthLabel(month)}</Hint>
-      <MoneyInput amount={amount} currency={currency} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing && !preset?.amount} />
+      <MoneyInput amount={amount} currency={cur} locked={!!lockCur} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing && !preset?.amount} />
       <Field label="Tarjeta">
         <div className="choice-row">
           {cards.filter(isCredit).map((c) => (
@@ -383,6 +392,7 @@ function CardForm({ id }: SheetState) {
   const [name, setName] = useState(existing?.name ?? '')
   const [nickname, setNickname] = useState(existing?.nickname ?? '')
   const [kind, setKind] = useState<CardKind>(existing?.kind ?? 'credit')
+  const [currency, setCurrency] = useState<CardCurrency>(existing?.currency ?? 'both')
   const credit = kind === 'credit'
   const [lastFour, setLastFour] = useState(existing?.lastFour ?? '')
   const [closingDay, setClosingDay] = useState(String(existing?.closingDay ?? ''))
@@ -410,6 +420,7 @@ function CardForm({ id }: SheetState) {
           name: name.trim(),
           nickname: nickname.trim() || null,
           kind,
+          currency,
           lastFour,
           // Débito y cuentas no tienen ciclo; se guardan valores neutros.
           closingDay: credit ? cd : 1,
@@ -427,6 +438,14 @@ function CardForm({ id }: SheetState) {
           options={(['credit', 'debit', 'account'] as CardKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))}
         />
       </Field>
+      <Field label="Moneda en que cobra">
+        <Segmented
+          value={currency}
+          onChange={setCurrency}
+          options={(['CRC', 'USD', 'both'] as CardCurrency[]).map((c) => ({ value: c, label: CURRENCY_LABEL[c] }))}
+        />
+      </Field>
+      {currency !== 'both' && <Hint>Los gastos, abonos, fijos y cuotas de esta tarjeta quedan siempre en {CURRENCY_LABEL[currency].toLowerCase()}.</Hint>}
       <Field label={credit ? 'Nombre (como en el estado de cuenta)' : 'Nombre (como lo llama el banco)'}>
         <input
           className="input"

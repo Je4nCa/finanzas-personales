@@ -1,8 +1,8 @@
 import { Mic, Sparkles, Square } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { dateLabel, monthLabel, todayKey } from '../domain/dates'
-import { isCredit } from '../domain/cards'
-import { paymentMonthFor } from '../domain/finance'
+import { fixedCurrency, isCredit } from '../domain/cards'
+import { convert, formatMoney, paymentMonthFor } from '../domain/finance'
 import { parseExpense, suggestedCard } from '../domain/parseExpense'
 import type { Currency, Expense, ExpenseScope, Income } from '../domain/types'
 import { newId, useData } from '../store/store'
@@ -69,7 +69,13 @@ export function QuickAdd({ preset }: SheetState) {
   const scope = over.scope ?? parsed.scope
   const date = over.date ?? parsed.date
   const fortnight: 1 | 2 = over.fortnight ?? (Number(date.slice(8, 10)) <= 15 ? 1 : 2)
-  const amount = parseFloat(amountStr)
+  // Tarjeta de una sola moneda: el gasto queda en esa moneda. Si se dijo en la otra, se convierte
+  // con el tipo de cambio como aproximación (el monto real es el que diga el estado de cuenta).
+  const lockCur = !isIncome ? fixedCurrency(cards.find((c) => c.id === cardId)) : null
+  const converted = !!lockCur && over.amount === undefined && parsed.amount !== null && currency !== lockCur
+  const finalAmountStr = converted ? String(Math.round(convert(parsed.amount!, currency, lockCur!, settings.exchangeRate) * 100) / 100) : amountStr
+  const finalCurrency = lockCur ?? currency
+  const amount = parseFloat(finalAmountStr)
   const valid = amount > 0 && !!description.trim()
   const card = cards.find((c) => c.id === cardId)
 
@@ -130,7 +136,7 @@ export function QuickAdd({ preset }: SheetState) {
   const save = () => {
     if (!valid) return
     if (isIncome) {
-      const inc: Income = { id: newId(), description: description.trim(), amount: Math.round(amount * 100) / 100, currency, date, fortnight }
+      const inc: Income = { id: newId(), description: description.trim(), amount: Math.round(amount * 100) / 100, currency: finalCurrency, date, fortnight }
       upsert('incomes', inc)
       close()
       showToast(`Ingreso de ${inc.description} guardado`)
@@ -140,7 +146,7 @@ export function QuickAdd({ preset }: SheetState) {
       id: newId(),
       description: description.trim(),
       amount: Math.round(amount * 100) / 100,
-      currency,
+      currency: finalCurrency,
       date,
       cardId: cardId ?? null,
       category,
@@ -205,7 +211,18 @@ export function QuickAdd({ preset }: SheetState) {
             </div>
             <input className="parsed-title" value={description} onChange={(e) => set({ description: e.target.value })} placeholder="Descripción" />
             <div className={isIncome ? 'income-amount' : ''}>
-              <MoneyInput amount={amountStr} currency={currency} onAmount={(v) => set({ amount: v })} onCurrency={(c) => set({ currency: c })} />
+              <MoneyInput
+                amount={finalAmountStr}
+                currency={finalCurrency}
+                locked={!!lockCur}
+                onAmount={(v) => set({ amount: v })}
+                onCurrency={(c) => set({ currency: c })}
+              />
+              {converted && (
+                <div className="chip purple" style={{ whiteSpace: 'normal', marginTop: 8 }}>
+                  Esta tarjeta cobra en {lockCur === 'CRC' ? 'colones' : 'dólares'}: convertí {formatMoney(parsed.amount!, currency)} con tu tipo de cambio. Ajustalo al monto del estado de cuenta.
+                </div>
+              )}
             </div>
             {isIncome ? (
               <Field label="Quincena">
@@ -256,8 +273,8 @@ export function QuickAdd({ preset }: SheetState) {
             onClick={() =>
               open(
                 isIncome
-                  ? { kind: 'income', preset: { description, amount: amountStr, currency, date, fortnight } }
-                  : { kind: 'expense', preset: { description, amount: amountStr, currency, cardId: cardId ?? null, category, scope, date } },
+                  ? { kind: 'income', preset: { description, amount: finalAmountStr, currency: finalCurrency, date, fortnight } }
+                  : { kind: 'expense', preset: { description, amount: finalAmountStr, currency: finalCurrency, cardId: cardId ?? null, category, scope, date } },
               )
             }
           >

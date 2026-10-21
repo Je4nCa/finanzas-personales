@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { amountsFor, fixedCurrency } from './cards'
 import { cardSummaries, chargesForMonth, installmentAmount, monthBalance, paymentMonthFor } from './finance'
 import type { AppData } from './types'
 
@@ -66,6 +67,17 @@ describe('resumen del mes', () => {
     expect(chargesForMonth(d, '2026-10').map((c) => c.sourceId)).toContain('x')
     expect(cardSummaries(d, '2026-10').map((s) => s.card.id)).toEqual(['c1'])
     expect(monthBalance(d, '2026-10').cash).toBe(3000)
+  })
+
+  it('montos por moneda sin convertir, la de la tarjeta primero', () => {
+    expect(amountsFor({ USD: 12, CRC: 5000 })).toEqual([
+      { amount: 5000, currency: 'CRC' },
+      { amount: 12, currency: 'USD' },
+    ])
+    expect(amountsFor({ USD: 12, CRC: 5000 }, 'USD')[0]).toEqual({ amount: 12, currency: 'USD' })
+    expect(amountsFor({ USD: 0, CRC: 0 }, 'USD')).toEqual([{ amount: 0, currency: 'USD' }])
+    expect(fixedCurrency({ currency: 'CRC' })).toBe('CRC')
+    expect(fixedCurrency({})).toBeNull()
   })
 
   it('agrupa por mes de pago, no por fecha de compra', () => {
