@@ -8,7 +8,7 @@ export type DateKey = string
 
 export type Money = { amount: number; currency: Currency }
 
-export type CardNetwork = 'visa' | 'mastercard' | null
+export type CardNetwork = 'visa' | 'mastercard' | 'amex' | null
 export type CardBank = 'bac' | 'wink' | null
 
 export interface Card {
@@ -26,6 +26,9 @@ export interface Card {
   bank?: CardBank
 }
 
+/** De quién es el gasto: solo mío, de la casa o compartido con la pareja. */
+export type ExpenseScope = 'personal' | 'casa' | 'pareja'
+
 /** Gasto variable: compras del día a día. */
 export interface Expense {
   id: string
@@ -36,6 +39,12 @@ export interface Expense {
   /** null = efectivo / débito: se cuenta en el mes de la compra. */
   cardId: string | null
   category: string
+  /** Ausente = personal. */
+  scope?: ExpenseScope
+  /** Mes de pago fijado por un estado de cuenta importado; manda sobre el calculado por la fecha. */
+  paymentMonth?: MonthKey | null
+  /** Línea del estado de cuenta de donde salió (evita importarla dos veces). */
+  sourceRef?: string | null
 }
 
 /** Gasto fijo mensual (suscripciones, servicios). */
@@ -49,6 +58,7 @@ export interface FixedExpense {
   startMonth: MonthKey
   /** Último mes de pago en que aplica (inclusive); null = sin fin. */
   endMonth: MonthKey | null
+  scope?: ExpenseScope
 }
 
 /** Financiamiento a tasa cero: cuotas iguales mes a mes. */
@@ -63,6 +73,7 @@ export interface Installment {
   firstMonth: MonthKey
   /** Meses de pago cuya cuota ya se marcó como pagada. */
   paidMonths: MonthKey[]
+  scope?: ExpenseScope
 }
 
 /** Abono parcial (o total) hecho a una tarjeta para un mes de pago. */
@@ -83,6 +94,8 @@ export interface Income {
   date: DateKey
   /** 1 = primera quincena, 2 = segunda quincena. */
   fortnight: 1 | 2
+  /** Línea del estado de cuenta de donde salió (evita importarla dos veces). */
+  sourceRef?: string | null
 }
 
 export type ThemePref = 'system' | 'light' | 'dark'

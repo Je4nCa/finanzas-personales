@@ -1,4 +1,4 @@
-import type { Card, Currency, DateKey, Expense, Income } from './types'
+import type { Card, Currency, DateKey, Expense, ExpenseScope, Income } from './types'
 
 /**
  * Interpreta una frase dictada ("25 mil en el Pali con la BAC", "me ingresaron 500 mil de Montevo")
@@ -13,6 +13,8 @@ export interface ParsedExpense {
   /** undefined = la frase no menciona tarjeta (se usa la sugerida). null = efectivo / débito. */
   cardId: string | null | undefined
   category: string
+  /** Personal / casa / pareja: por frase ("en pareja", "para la casa") o por el historial. */
+  scope: ExpenseScope
   date: DateKey
   /** Quincena según el día (para ingresos). */
   fortnight: 1 | 2
@@ -35,14 +37,16 @@ export const norm = (s: string) =>
     .replace(/[̀-ͯ]/g, '')
     .trim()
 
+// El orden importa: la primera categoría que coincide gana (p. ej. "Coffee Bar" es Comida, no Ocio).
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  Súper: ['super', 'supermercado', 'automercado', 'walmart', 'pali', 'maxipali', 'masxmenos', 'pricesmart', 'megasuper', 'perimercados', 'fresh', 'mercado', 'feria', 'verduras', 'abarrotes', 'pulperia', 'mini super', 'minisuper'],
-  Comida: ['restaurante', 'almuerzo', 'cena', 'desayuno', 'cafe', 'cafeteria', 'pizza', 'hamburguesa', 'sushi', 'mcdonalds', 'mcdonald', 'kfc', 'starbucks', 'comida', 'rappi', 'soda', 'pollo', 'tacos', 'taco', 'helado', 'panaderia', 'pan', 'antojo', 'subway', 'burger', 'wendys', 'taco bell', 'pops', 'spoon'],
-  Transporte: ['gasolina', 'gasolinera', 'uber', 'didi', 'taxi', 'bus', 'parqueo', 'peaje', 'diesel', 'combustible', 'lavacar', 'mecanico', 'taller', 'llantas', 'marchamo', 'riteve', 'tren', 'repuestos'],
-  Compras: ['amazon', 'ropa', 'zapatos', 'tenis', 'tienda', 'shein', 'temu', 'ebay', 'regalo', 'mall', 'zara', 'aliexpress', 'celular', 'audifonos', 'cargador', 'perfume', 'universal', 'monge', 'gollo', 'apple'],
+  Súper: ['super', 'supermercado', 'automercado', 'walmart', 'pali', 'maxipali', 'masxmenos', 'pricesmart', 'megasuper', 'perimercados', 'fresh', 'mercado', 'market', 'feria', 'verduras', 'abarrotes', 'abastecedor', 'pulperia', 'mini super', 'minisuper', 'am pm'],
+  Mascotas: ['pet shop', 'petshop', 'veterinaria', 'vete', 'mascota', 'agroveterinaria', 'pet'],
+  Comida: ['restaurante', 'almuerzo', 'cena', 'desayuno', 'cafe', 'coffee', 'cafeteria', 'pizza', 'pizzeria', 'hamburguesa', 'sushi', 'mcdonalds', 'mc donalds', 'mcdonald', 'kfc', 'starbucks', 'comida', 'rappi', 'soda', 'pollo', 'pollos', 'rosti', 'tacos', 'taco', 'helado', 'panaderia', 'panad', 'pan', 'antojo', 'subway', 'burger', 'wendys', 'taco bell', 'pops', 'spoon', 'room service'],
+  Transporte: ['gasolina', 'gasolinera', 'servicentro', 'unopetrol', 'uber', 'didi', 'taxi', 'bus', 'parqueo', 'parqueos', 'parking', 'peaje', 'global via', 'ruta 27', 'diesel', 'combustible', 'lavacar', 'mecanico', 'taller', 'llantas', 'marchamo', 'riteve', 'tren', 'repuestos'],
+  Compras: ['amazon', 'ropa', 'zapatos', 'tenis', 'tienda', 'shein', 'temu', 'ebay', 'regalo', 'mall', 'zara', 'aliexpress', 'celular', 'audifonos', 'cargador', 'perfume', 'universal', 'monge', 'gollo', 'apple', 'pequeno mundo', 'pequeño mundo'],
   Salud: ['farmacia', 'medicina', 'medicamento', 'doctor', 'medico', 'dentista', 'clinica', 'hospital', 'examen', 'laboratorio', 'lentes', 'gimnasio', 'gym', 'fischel', 'sucre', 'terapia', 'consulta'],
-  Hogar: ['luz', 'agua', 'electricidad', 'alquiler', 'renta', 'ferreteria', 'epa', 'muebles', 'limpieza', 'gas', 'cable', 'kolbi', 'liberty', 'claro', 'telefono', 'recibo', 'casa', 'jardin', 'lavanderia'],
-  Ocio: ['cine', 'netflix', 'spotify', 'juego', 'videojuego', 'playstation', 'xbox', 'steam', 'nintendo', 'concierto', 'bar', 'cerveza', 'birras', 'fiesta', 'viaje', 'hotel', 'airbnb', 'entrada', 'teatro', 'disney', 'hbo', 'youtube', 'tragos', 'discoteca'],
+  Hogar: ['luz', 'agua', 'electricidad', 'alquiler', 'renta', 'ferreteria', 'epa', 'novex', 'muebles', 'limpieza', 'gas', 'cable', 'kolbi', 'liberty', 'claro', 'telefono', 'recibo', 'casa', 'jardin', 'lavanderia'],
+  Ocio: ['cine', 'netflix', 'spotify', 'juego', 'videojuego', 'playstation', 'xbox', 'steam', 'nintendo', 'concierto', 'bar', 'pub', 'licorera', 'cerveza', 'birras', 'fiesta', 'viaje', 'hotel', 'airbnb', 'entrada', 'teatro', 'disney', 'hbo', 'youtube', 'tragos', 'discoteca', 'play ground'],
 }
 
 const CASH_WORDS = ['efectivo', 'cash', 'debito', 'sinpe', 'transferencia', 'contado']
@@ -247,7 +251,8 @@ function findDate(tokens: Token[], today: DateKey): DateKey | null {
 function categoryFromKeywords(text: string): string | null {
   const n = ` ${norm(text)} `
   for (const [cat, words] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (words.some((w) => n.includes(` ${w} `) || n.includes(` ${w}s `))) return cat
+    // Palabras largas también dentro de otras ("multimercado", "parqueos"); las cortas, solo enteras.
+    if (words.some((w) => n.includes(` ${w} `) || n.includes(` ${w}s `) || (w.length >= 5 && n.includes(w)))) return cat
   }
   return null
 }
@@ -260,6 +265,12 @@ function fromHistory(description: string, history: Expense[]): Expense | undefin
   return sorted.find((e) => norm(e.description) === d) ?? sorted.find((e) => norm(e.description).includes(d) || d.includes(norm(e.description)))
 }
 
+/** Categoría y tipo sugeridos para una descripción (historial primero, después palabras clave). */
+export function suggestFor(description: string, history: Expense[]): { category: string; scope?: ExpenseScope } {
+  const past = fromHistory(description, history)
+  return { category: past?.category ?? categoryFromKeywords(description) ?? 'Otros', scope: past?.scope }
+}
+
 /** Tarjeta más usada en el historial (o la primera). */
 export function suggestedCard(cards: Card[], history: Expense[]): string | null {
   if (cards.length === 0) return null
@@ -269,7 +280,23 @@ export function suggestedCard(cards: Card[], history: Expense[]): string | null 
   return top && cards.some((c) => c.id === top[0]) ? top[0] : cards[0].id
 }
 
-export function parseExpense(text: string, ctx: ParseContext): ParsedExpense {
+// Frases de tipo de gasto; se quitan antes de leer la descripción.
+const SCOPE_PATTERNS: [ExpenseScope, RegExp][] = [
+  ['pareja', /\b(en pareja|a medias|compartido|entre los dos|juntos|con mi (pareja|novia|novio|esposa|esposo))\b/gi],
+  ['casa', /\b((de|para) la casa|(del|para el) hogar|gasto de casa)\b/gi],
+  ['personal', /\b(personal|solo mio|solo mío|para mi|para mí)\b/gi],
+]
+
+export function parseExpense(rawText: string, ctx: ParseContext): ParsedExpense {
+  let text = rawText
+  let spokenScope: ExpenseScope | undefined
+  for (const [scope, re] of SCOPE_PATTERNS) {
+    if (re.test(text)) {
+      spokenScope ??= scope
+      text = text.replace(re, ' ')
+    }
+    re.lastIndex = 0
+  }
   const tokens = tokenize(text)
   const symbolCurrency = findCurrency(tokens)
   const amount = findAmount(tokens)
@@ -300,6 +327,7 @@ export function parseExpense(text: string, ctx: ParseContext): ParsedExpense {
       currency: symbolCurrency ?? amount?.currency ?? past?.currency ?? ctx.baseCurrency,
       cardId: undefined,
       category: 'Ingreso',
+      scope: 'personal',
       date,
       fortnight,
       found: { amount: !!amount, currency: !!symbolCurrency || !!amount?.currency, card: false, category: false, date: date !== ctx.today },
@@ -321,6 +349,7 @@ export function parseExpense(text: string, ctx: ParseContext): ParsedExpense {
     currency,
     cardId: cardId !== undefined ? cardId : past ? past.cardId : undefined,
     category,
+    scope: spokenScope ?? past?.scope ?? 'personal',
     date,
     fortnight,
     found: {

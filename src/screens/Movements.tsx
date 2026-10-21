@@ -1,10 +1,10 @@
-import { Plus } from 'lucide-react'
+import { FileUp, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { dateLabel, monthLabel, monthOf } from '../domain/dates'
 import { sumByCurrency, toBase } from '../domain/finance'
-import type { Card } from '../domain/types'
+import type { Card, ExpenseScope } from '../domain/types'
 import { ExpenseIcon } from '../components/logos'
-import { cardSwatch, Empty, Money, MonthNav, Segmented } from '../components/ui'
+import { cardSwatch, Empty, Money, MonthNav, SCOPES, Segmented } from '../components/ui'
 import { useOverlay } from '../store/ui'
 import { useMonthView } from '../store/useMonth'
 
@@ -44,14 +44,30 @@ function Expenses() {
   const { data, charges } = useMonthView()
   const open = useOverlay((s) => s.open)
   const [filter, setFilter] = useState<string>('all')
+  const [scope, setScope] = useState<ExpenseScope | 'all'>('all')
   const cardById = new Map(data.cards.map((c) => [c.id, c]))
   const list = charges
-    .filter((c) => c.kind === 'variable' && (filter === 'all' || (c.cardId ?? 'cash') === filter))
+    .filter((c) => c.kind === 'variable' && (filter === 'all' || (c.cardId ?? 'cash') === filter) && (scope === 'all' || c.scope === scope))
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
   const total = toBase(sumByCurrency(list), data.settings)
+  // Todo lo que se cobra en el mes (variables, fijos y cuotas), separado por tipo.
+  const byScope = SCOPES.map((s) => ({ ...s, total: toBase(sumByCurrency(charges.filter((c) => c.scope === s.value)), data.settings) }))
 
   return (
     <>
+      <div className="card scope-summary">
+        {byScope.map((s) => (
+          <button key={s.value} className={`scope-cell ${scope === s.value ? 'on' : ''}`} onClick={() => setScope(scope === s.value ? 'all' : s.value)}>
+            <span className="lbl">
+              <span className={`scope-dot ${s.value}`} />
+              {s.label}
+            </span>
+            <span className="val num">
+              <Money amount={s.total} currency={data.settings.baseCurrency} compact />
+            </span>
+          </button>
+        ))}
+      </div>
       <div className="choice-row" style={{ marginBottom: 12 }}>
         {[{ id: 'all', name: 'Todas' }, ...data.cards, { id: 'cash', name: 'Efectivo' }].map((c) => (
           <button key={c.id} className={`choice ${filter === c.id ? 'on' : ''}`} onClick={() => setFilter(c.id)}>
@@ -61,7 +77,7 @@ function Expenses() {
       </div>
       <div className="card">
         <div className="card-head">
-          <span className="title">Gastos variables</span>
+          <span className="title">{scope === 'all' ? 'Gastos variables' : `Gastos · ${SCOPES.find((s) => s.value === scope)!.label}`}</span>
           <span className="num" style={{ fontWeight: 600 }}><Money amount={total} currency={data.settings.baseCurrency} compact /></span>
         </div>
         {list.length === 0 ? (
@@ -76,6 +92,7 @@ function Expenses() {
                   <div className="li-sub">
                     <CardTag card={c.cardId ? cardById.get(c.cardId) : undefined} />·<span>compra {dateLabel(c.date!)}</span>
                     {c.category && <span className="chip">{c.category}</span>}
+                    {c.scope !== 'personal' && <span className={`chip scope ${c.scope}`}>{SCOPES.find((s) => s.value === c.scope)!.label}</span>}
                   </div>
                 </div>
                 <div className="li-amount"><Money amount={c.amount} currency={c.currency} /></div>
@@ -85,6 +102,9 @@ function Expenses() {
         )}
       </div>
       <AddButton label="Agregar gasto" onClick={() => open({ kind: 'quick' })} />
+      <button className="pill-btn glass block import-btn" onClick={() => open({ kind: 'import' })}>
+        <FileUp /> Importar estado de cuenta (PDF)
+      </button>
     </>
   )
 }

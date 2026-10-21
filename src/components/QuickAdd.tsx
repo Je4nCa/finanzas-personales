@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { dateLabel, monthLabel, todayKey } from '../domain/dates'
 import { paymentMonthFor } from '../domain/finance'
 import { parseExpense, suggestedCard } from '../domain/parseExpense'
-import type { Currency, Expense, Income } from '../domain/types'
+import type { Currency, Expense, ExpenseScope, Income } from '../domain/types'
 import { newId, useData } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { CATEGORIES } from './forms'
-import { CardPicker, Field, MoneyInput, Segmented, Sheet } from './ui'
+import { CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
 
 // Web Speech API: Safari y Chrome la exponen con prefijo.
 type Recognition = {
@@ -38,7 +38,7 @@ const VOICE_ERRORS: Record<string, string> = {
 const EXAMPLES = ['25 mil en el súper con la BAC', 'Uber 4800 ayer', 'Me ingresaron 500 mil de Montevo', 'almuerzo 6500 en efectivo']
 
 type Kind = 'expense' | 'income'
-type Overrides = Partial<{ kind: Kind; description: string; amount: string; currency: Currency; cardId: string | null; category: string; date: string; fortnight: 1 | 2 }>
+type Overrides = Partial<{ kind: Kind; description: string; amount: string; currency: Currency; cardId: string | null; category: string; scope: ExpenseScope; date: string; fortnight: 1 | 2 }>
 
 export function QuickAdd({ preset }: SheetState) {
   const { cards, expenses, incomes, settings, upsert } = useData()
@@ -65,6 +65,7 @@ export function QuickAdd({ preset }: SheetState) {
   const currency = over.currency ?? parsed.currency
   const cardId = over.cardId !== undefined ? over.cardId : parsed.cardId !== undefined ? parsed.cardId : suggestedCard(cards, expenses)
   const category = over.category ?? parsed.category
+  const scope = over.scope ?? parsed.scope
   const date = over.date ?? parsed.date
   const fortnight: 1 | 2 = over.fortnight ?? (Number(date.slice(8, 10)) <= 15 ? 1 : 2)
   const amount = parseFloat(amountStr)
@@ -142,6 +143,7 @@ export function QuickAdd({ preset }: SheetState) {
       date,
       cardId: cardId ?? null,
       category,
+      scope,
     }
     upsert('expenses', exp)
     close()
@@ -229,6 +231,9 @@ export function QuickAdd({ preset }: SheetState) {
                 ))}
               </div>
             </Field>
+            <Field label="Tipo de gasto">
+              <ScopePicker value={scope} onChange={(v) => set({ scope: v })} small />
+            </Field>
               </>
             )}
             <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -249,7 +254,7 @@ export function QuickAdd({ preset }: SheetState) {
               open(
                 isIncome
                   ? { kind: 'income', preset: { description, amount: amountStr, currency, date, fortnight } }
-                  : { kind: 'expense', preset: { description, amount: amountStr, currency, cardId: cardId ?? null, category, date } },
+                  : { kind: 'expense', preset: { description, amount: amountStr, currency, cardId: cardId ?? null, category, scope, date } },
               )
             }
           >

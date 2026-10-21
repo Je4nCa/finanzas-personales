@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Wallet, X } from 'lucide
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, monthLabel } from '../domain/dates'
 import { formatMoney } from '../domain/finance'
-import type { Card, Currency } from '../domain/types'
+import type { Card, Currency, ExpenseScope } from '../domain/types'
 import { useUi } from '../store/store'
 import { useOverlay } from '../store/ui'
 import { BankBadge, bankOf, NetworkLogo, networkOf } from './logos'
@@ -270,4 +270,15 @@ export function Gauge({ value, label, display, color = 'var(--purple)' }: { valu
       </div>
     </div>
   )
+}
+
+export const SCOPES: { value: ExpenseScope; label: string; short: string }[] = [
+  { value: 'personal', label: 'Personal', short: 'Mío' },
+  { value: 'casa', label: 'Casa', short: 'Casa' },
+  { value: 'pareja', label: 'Pareja', short: 'Pareja' },
+]
+
+/** Personal / Casa / Pareja. */
+export function ScopePicker({ value, onChange, small }: { value: ExpenseScope; onChange: (v: ExpenseScope) => void; small?: boolean }) {
+  return <Segmented small={small} value={value} onChange={onChange} options={SCOPES.map((s) => ({ value: s.value, label: small ? s.short : s.label }))} />
 }

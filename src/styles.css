@@ -685,3 +685,77 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 .gate-error { white-space: normal; padding: 8px 10px; align-self: stretch; }
 .gate-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; margin-top: 4px; }
 .gate-divider::before, .gate-divider::after { content: ''; flex: 1; height: 1px; background: var(--line-strong); }
+
+/* ---------- Tipo de gasto (personal / casa / pareja) ---------- */
+
+:root { --scope-personal: #7a71ea; --scope-casa: #f0a020; --scope-pareja: #e8578f; }
+.scope-summary { display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px; gap: 4px; margin-bottom: 12px; }
+.scope-cell {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; border-radius: 16px;
+  border: 1px solid transparent; transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.scope-cell.on { background: var(--surface-2); border-color: var(--line-strong); }
+.scope-cell .lbl { font-size: 12.5px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.scope-cell .val { font-weight: 600; font-size: 15px; }
+.scope-dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; }
+.scope-dot.personal { background: var(--scope-personal); }
+.scope-dot.casa { background: var(--scope-casa); }
+.scope-dot.pareja { background: var(--scope-pareja); }
+.chip.scope.casa { background: color-mix(in srgb, var(--scope-casa) 16%, transparent); color: var(--scope-casa); }
+.chip.scope.pareja { background: color-mix(in srgb, var(--scope-pareja) 16%, transparent); color: var(--scope-pareja); }
+.import-btn { margin-top: 10px; }
+
+/* ---------- Importar estado de cuenta ---------- */
+
+.drop-zone {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 16px; border-radius: 22px;
+  border: 1.5px dashed var(--line-strong); background: var(--surface); color: var(--text-2); text-align: center;
+}
+.drop-zone svg { width: 30px; height: 30px; color: var(--purple); stroke-width: 1.6; }
+.drop-zone strong { color: var(--text); font-size: 16px; font-weight: 600; }
+.drop-zone span { font-size: 13px; }
+.import { display: flex; flex-direction: column; gap: 12px; }
+.import-file { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.import-bulk { display: flex; flex-direction: column; gap: 8px; }
+.import-group { padding: 14px; }
+.import-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 520; padding: 8px 10px; border-radius: 12px; margin-bottom: 12px; }
+.import-check.ok { background: var(--green-soft); color: var(--green); }
+.import-check.warn { background: var(--red-soft); color: var(--red); }
+.import-target { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.import-target select, .import-cat { height: 40px; font-size: 14px; padding: 0 12px; border-radius: 12px; }
+.import-rows { display: flex; flex-direction: column; }
+.import-row { padding: 10px 0; border-top: 1px solid var(--line); transition: opacity 0.2s ease; }
+.import-row.off { opacity: 0.45; }
+.import-row .check {
+  width: 24px; height: 24px; border-radius: 8px; flex: none; margin-top: 2px; display: grid; place-items: center;
+  border: 1.5px solid var(--line-strong); background: var(--surface); color: var(--on-ink);
+}
+.import-row .check.on { background: var(--ink); border-color: var(--ink); }
+.import-row .check svg { width: 15px; height: 15px; stroke-width: 3; }
+.import-desc { border: 0; background: none; outline: none; padding: 0; width: 100%; font-weight: 520; font-size: 15px; }
+.import-desc:focus { text-decoration: underline; text-decoration-color: var(--purple); }
+.import-amount { display: flex; align-items: center; gap: 2px; font-weight: 600; flex: none; }
+.import-amount input {
+  width: auto; text-align: right; border: 1px solid transparent; border-radius: 8px; background: none; outline: none;
+  font-weight: 600; font-size: 15px; padding: 2px 4px;
+}
+.import-amount input:focus { border-color: var(--purple); background: var(--surface); }
+.import-row-opts { display: flex; gap: 8px; margin: 8px 0 0 34px; align-items: center; }
+.import-cat { width: auto; min-width: 0; flex: 1; max-width: 140px; }
+.import-row-opts .segmented { flex: 1; min-width: 0; }
+.import-row-opts .segmented.small button { padding: 0 6px; }
+@media (max-width: 420px) { .import-row-opts { margin-left: 0; } }
+.import-footer {
+  position: sticky; bottom: calc(-1 * var(--safe-bottom) - 20px); margin: 0 -16px -20px; padding: 12px 16px calc(var(--safe-bottom) + 16px);
+  background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--line); display: flex; align-items: center; gap: 12px;
+}
+.import-total { display: flex; flex-direction: column; font-size: 12.5px; color: var(--muted); flex: 1; }
+.import-total strong { color: var(--text); font-size: 15px; }
+.import-footer .pill-btn { width: auto; padding: 0 22px; flex: none; }
+@media (min-width: 900px) {
+  .sheet:has(.import) { width: min(760px, calc(100vw - 48px)); }
+  .import-footer { margin: 0 -24px -24px; padding: 12px 24px 18px; bottom: -24px; }
+}
+.import-amount button { font-weight: 600; font-size: 15px; padding: 2px 4px; border-radius: 8px; border-bottom: 1px dashed var(--line-strong); }
+.import-amount button.credit { color: var(--green); }

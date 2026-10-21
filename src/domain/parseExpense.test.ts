@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseExpense, type ParseContext } from './parseExpense'
+import { parseExpense, suggestFor, type ParseContext } from './parseExpense'
 
 const ctx: ParseContext = {
   cards: [
@@ -72,6 +72,29 @@ describe('parseExpense', () => {
 
   it('miles con coma y últimos 4 dígitos', () => {
     expect(p('Ferretería EPA 32,000 con la 8841')).toMatchObject({ amount: 32000, cardId: 'bcr', category: 'Hogar', description: 'Ferretería EPA' })
+  })
+
+  it('tipo de gasto por frase', () => {
+    expect(p('cena 18 mil en pareja con la BAC')).toMatchObject({ description: 'Cena', scope: 'pareja', cardId: 'bac', amount: 18000 })
+    expect(p('pali 30 mil para la casa')).toMatchObject({ description: 'Pali', scope: 'casa' })
+    expect(p('cine 7 mil').scope).toBe('personal')
+  })
+
+  it('tipo de gasto del historial', () => {
+    const history = [{ ...ctx.history[0], scope: 'casa' as const }]
+    expect(parseExpense('pali 12 mil', { ...ctx, history }).scope).toBe('casa')
+  })
+
+  it('categorías con nombres abreviados del banco', () => {
+    const cat = (d: string) => suggestFor(d, []).category
+    expect(cat('Multimercado AM PM Cenada')).toBe('Súper')
+    expect(cat('Panad El Buen Pastor')).toBe('Comida')
+    expect(cat('Servicentro San Juan')).toBe('Transporte')
+    expect(cat('Avenida Parqueos')).toBe('Transporte')
+    expect(cat('Pet Shop 2 Go')).toBe('Mascotas')
+    expect(cat('Coffee Bar Auxis CR')).toBe('Comida')
+    expect(cat('On Side Sport Bar')).toBe('Ocio')
+    expect(cat('Unopetrol Barreal')).toBe('Transporte')
   })
 
   describe('ingresos', () => {

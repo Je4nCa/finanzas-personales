@@ -1,5 +1,5 @@
-import { siClaude, siNetflix, siPlaystation, siSpotify, siUber, siVisa, siApple } from 'simple-icons'
-import { Bus, CircleEllipsis, HeartPulse, Home as HomeIcon, Popcorn, ShoppingBag, ShoppingCart, Utensils } from 'lucide-react'
+import { siAmericanexpress, siApple, siClaude, siNetflix, siPlaystation, siSpotify, siUber, siVisa } from 'simple-icons'
+import { Bus, CircleEllipsis, HeartPulse, Home as HomeIcon, PawPrint, Popcorn, ShoppingBag, ShoppingCart, Utensils } from 'lucide-react'
 import bacLogo from '../assets/logos/bac.png'
 import winkLogo from '../assets/logos/wink.png'
 import { norm } from '../domain/parseExpense'
@@ -40,6 +40,7 @@ const CATEGORY_ICON: Record<string, typeof Utensils> = {
   Salud: HeartPulse,
   Hogar: HomeIcon,
   Ocio: Popcorn,
+  Mascotas: PawPrint,
 }
 
 /** Logo del comercio si lo reconoce; si no, el ícono de la categoría. */
@@ -66,6 +67,7 @@ export function detectNetwork(name: string): CardNetwork {
   const n = norm(name)
   if (n.includes('visa')) return 'visa'
   if (n.includes('master')) return 'mastercard'
+  if (n.includes('amex') || n.includes('american')) return 'amex'
   return null
 }
 
@@ -82,6 +84,7 @@ export const bankOf = (c: Card): CardBank => (c.bank !== undefined ? c.bank : de
 /** Marca de la red, monocroma como en las tarjetas metálicas (Visa) o a color (Mastercard). */
 export function NetworkLogo({ network, size = 22 }: { network: CardNetwork; size?: number }) {
   if (network === 'visa') return <SimpleIcon icon={siVisa} size={size * 1.9} color="currentColor" />
+  if (network === 'amex') return <SimpleIcon icon={siAmericanexpress} size={size * 1.25} />
   if (network === 'mastercard') {
     return (
       <svg viewBox="0 0 38 24" width={size * 1.6} height={size} role="img" aria-label="Mastercard">

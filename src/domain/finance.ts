@@ -1,5 +1,5 @@
 import { addMonths, clampDay, monthDiff, monthOf, parseDate } from './dates'
-import type { AppData, Card, Currency, DateKey, Installment, MonthKey, Settings } from './types'
+import type { AppData, Card, Currency, DateKey, ExpenseScope, Installment, MonthKey, Settings } from './types'
 
 /**
  * Mes en que se paga una compra hecha con una tarjeta.
@@ -45,6 +45,7 @@ export interface Charge {
   /** "3/12" para cuotas. */
   detail?: string
   category?: string
+  scope: ExpenseScope
 }
 
 /** Todo lo que se cobra en un mes de pago, sin importar cuándo se compró. */
@@ -54,7 +55,7 @@ export function chargesForMonth(data: AppData, month: MonthKey): Charge[] {
 
   for (const e of data.expenses) {
     const card = e.cardId ? cardById.get(e.cardId) : undefined
-    const pm = card ? paymentMonthFor(card, e.date) : monthOf(e.date)
+    const pm = e.paymentMonth ?? (card ? paymentMonthFor(card, e.date) : monthOf(e.date))
     if (pm !== month) continue
     out.push({
       kind: 'variable',
@@ -65,6 +66,7 @@ export function chargesForMonth(data: AppData, month: MonthKey): Charge[] {
       cardId: card ? e.cardId : null,
       date: e.date,
       category: e.category,
+      scope: e.scope ?? 'personal',
     })
   }
 
@@ -77,6 +79,7 @@ export function chargesForMonth(data: AppData, month: MonthKey): Charge[] {
       amount: f.amount,
       currency: f.currency,
       cardId: f.cardId && cardById.has(f.cardId) ? f.cardId : null,
+      scope: f.scope ?? 'personal',
     })
   }
 
@@ -91,6 +94,7 @@ export function chargesForMonth(data: AppData, month: MonthKey): Charge[] {
       currency: inst.currency,
       cardId: inst.cardId && cardById.has(inst.cardId) ? inst.cardId : null,
       detail: `${i + 1}/${inst.months}`,
+      scope: inst.scope ?? 'personal',
     })
   }
 

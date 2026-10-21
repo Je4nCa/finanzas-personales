@@ -16,6 +16,7 @@
     "exceljs": "^4.4.0",
     "idb-keyval": "^6.3.0",
     "lucide-react": "^1.60.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "simple-icons": "^16.35.0",

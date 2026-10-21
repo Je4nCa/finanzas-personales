@@ -2,15 +2,16 @@ import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, dateLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
 import { formatMoney, paymentMonthFor } from '../domain/finance'
-import type { Card, CardBank, CardNetwork, CardPayment, Currency, Expense, FixedExpense, Income, Installment } from '../domain/types'
+import type { Card, CardBank, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment } from '../domain/types'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
-import { cardSwatch, CardPicker, Field, MoneyInput, Segmented, Sheet } from './ui'
+import { cardSwatch, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
+import { ImportSheet } from './ImportSheet'
 import { QuickAdd } from './QuickAdd'
 import { SettingsSheet } from './SettingsSheet'
 import { BankBadge, detectBank, detectNetwork, NetworkLogo } from './logos'
 
-export const CATEGORIES = ['Comida', 'Súper', 'Transporte', 'Compras', 'Salud', 'Hogar', 'Ocio', 'Otros']
+export const CATEGORIES = ['Comida', 'Súper', 'Transporte', 'Compras', 'Salud', 'Hogar', 'Mascotas', 'Ocio', 'Otros']
 
 const parseAmount = (s: string) => {
   const n = parseFloat(s)
@@ -81,22 +82,40 @@ function Hint({ children }: { children: ReactNode }) {
 function ExpenseForm({ id, preset }: SheetState) {
   const { expenses, cards, upsert, remove, settings } = useData()
   const existing = expenses.find((e) => e.id === id)
-  const p = (preset ?? {}) as Partial<Record<'description' | 'amount' | 'currency' | 'date' | 'category', string>> & { cardId?: string | null }
+  const p = (preset ?? {}) as Partial<Record<'description' | 'amount' | 'currency' | 'date' | 'category', string>> & { cardId?: string | null; scope?: ExpenseScope }
   const [description, setDescription] = useState(existing?.description ?? p.description ?? '')
-  const [amount, setAmount] = useState(existing ? String(existing.amount) : (p.amount ?? ''))
+  // Un reembolso (crédito del estado de cuenta) se edita en positivo y conserva su signo.
+  const sign = existing && existing.amount < 0 ? -1 : 1
+  const [amount, setAmount] = useState(existing ? String(Math.abs(existing.amount)) : (p.amount ?? ''))
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? (p.currency as Currency) ?? settings.baseCurrency)
   const [date, setDate] = useState(existing?.date ?? p.date ?? todayKey())
   const [cardId, setCardId] = useState<string | null>(existing ? existing.cardId : p.cardId !== undefined ? p.cardId : (cards[0]?.id ?? null))
   const [category, setCategory] = useState(existing?.category ?? p.category ?? 'Comida')
+  const [scope, setScope] = useState<ExpenseScope>(existing?.scope ?? p.scope ?? 'personal')
   const card = cards.find((c) => c.id === cardId)
   const n = parseAmount(amount)
+  // Un gasto importado conserva el mes de pago del estado de cuenta mientras no cambie de tarjeta.
+  const fixedMonth = existing?.paymentMonth && existing.cardId === cardId ? existing.paymentMonth : null
 
   return (
     <FormShell
-      title={existing ? 'Editar gasto' : 'Nuevo gasto'}
+      title={sign < 0 ? 'Editar reembolso' : existing ? 'Editar gasto' : 'Nuevo gasto'}
       valid={!!n && !!description.trim() && !!date}
       onDelete={existing && (() => remove('expenses', existing.id))}
-      onSubmit={() => upsert('expenses', { id: existing?.id ?? newId(), description: description.trim(), amount: n!, currency, date, cardId, category } satisfies Expense)}
+      onSubmit={() =>
+        upsert('expenses', {
+          ...existing,
+          id: existing?.id ?? newId(),
+          description: description.trim(),
+          amount: n! * sign,
+          currency,
+          date,
+          cardId,
+          category,
+          scope,
+          paymentMonth: fixedMonth,
+        } satisfies Expense)
+      }
     >
       <MoneyInput amount={amount} currency={currency} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
       <Field label="Descripción">
@@ -105,7 +124,15 @@ function ExpenseForm({ id, preset }: SheetState) {
       <Field label="Tarjeta">
         <CardPicker cards={cards} value={cardId} onChange={setCardId} />
       </Field>
-      {date && <Hint>{card ? `Se cobra en el pago de ${monthLabel(paymentMonthFor(card, date))}` : `Cuenta en ${monthLabel(date.slice(0, 7))}`}</Hint>}
+      {date && (
+        <Hint>
+          {fixedMonth
+            ? `Según el estado de cuenta, se cobra en ${monthLabel(fixedMonth)}`
+            : card
+              ? `Se cobra en el pago de ${monthLabel(paymentMonthFor(card, date))}`
+              : `Cuenta en ${monthLabel(date.slice(0, 7))}`}
+        </Hint>
+      )}
       <Field label="Fecha de compra">
         <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
@@ -117,6 +144,9 @@ function ExpenseForm({ id, preset }: SheetState) {
             </button>
           ))}
         </div>
+      </Field>
+      <Field label="Tipo de gasto">
+        <ScopePicker value={scope} onChange={setScope} />
       </Field>
     </FormShell>
   )
@@ -134,6 +164,7 @@ function FixedForm({ id, preset }: SheetState) {
   const [cardId, setCardId] = useState<string | null>(existing ? existing.cardId : ((preset?.cardId as string) ?? cards[0]?.id ?? null))
   const [startMonth, setStartMonth] = useState(existing?.startMonth ?? month)
   const [endMonth, setEndMonth] = useState(existing?.endMonth ?? '')
+  const [scope, setScope] = useState<ExpenseScope>(existing?.scope ?? 'personal')
   const n = parseAmount(amount)
 
   return (
@@ -150,6 +181,7 @@ function FixedForm({ id, preset }: SheetState) {
           cardId,
           startMonth,
           endMonth: endMonth || null,
+          scope,
         } satisfies FixedExpense)
       }
     >
@@ -168,6 +200,9 @@ function FixedForm({ id, preset }: SheetState) {
           <input className="input" type="month" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} />
         </Field>
       </div>
+      <Field label="Tipo de gasto">
+        <ScopePicker value={scope} onChange={setScope} />
+      </Field>
     </FormShell>
   )
 }
@@ -184,6 +219,7 @@ function InstallmentForm({ id, preset }: SheetState) {
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? settings.baseCurrency)
   const [cardId, setCardId] = useState<string | null>(existing ? existing.cardId : ((preset?.cardId as string) ?? cards[0]?.id ?? null))
   const [months, setMonths] = useState(String(existing?.months ?? 12))
+  const [scope, setScope] = useState<ExpenseScope>(existing?.scope ?? 'personal')
   const card = cards.find((c) => c.id === cardId)
   const [firstMonth, setFirstMonth] = useState(existing?.firstMonth ?? (card ? paymentMonthFor(card, todayKey()) : currentMonth()))
   const n = parseAmount(amount)
@@ -205,6 +241,7 @@ function InstallmentForm({ id, preset }: SheetState) {
           months: m,
           firstMonth,
           paidMonths: existing?.paidMonths ?? [],
+          scope,
         } satisfies Installment)
       }
     >
@@ -240,6 +277,9 @@ function InstallmentForm({ id, preset }: SheetState) {
         <input className="input" type="month" value={firstMonth} onChange={(e) => setFirstMonth(e.target.value)} />
       </Field>
       {validMonths && firstMonth && <Hint>Última cuota: {monthLabel(addMonths(firstMonth, m - 1))}</Hint>}
+      <Field label="Tipo de gasto">
+        <ScopePicker value={scope} onChange={setScope} />
+      </Field>
     </FormShell>
   )
 }
@@ -385,7 +425,7 @@ function CardForm({ id }: SheetState) {
       )}
       <Field label="Red">
         <div className="choice-row">
-          {(['visa', 'mastercard', null] as CardNetwork[]).map((n) => (
+          {(['visa', 'mastercard', 'amex', null] as CardNetwork[]).map((n) => (
             <button key={String(n)} type="button" className={`choice ${shownNetwork === n ? 'on' : ''}`} onClick={() => setNetwork(n)}>
               {n ? <NetworkLogo network={n} size={14} /> : 'Otra'}
             </button>
@@ -436,6 +476,8 @@ export function SheetHost() {
   switch (sheet.kind) {
     case 'quick':
       return <QuickAdd key={key} {...sheet} />
+    case 'import':
+      return <ImportSheet key={key} />
     case 'expense':
       return <ExpenseForm key={key} {...sheet} />
     case 'fixed':

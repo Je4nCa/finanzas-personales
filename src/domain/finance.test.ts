@@ -51,6 +51,12 @@ describe('resumen del mes', () => {
     settings: { userName: '', theme: 'system', baseCurrency: 'CRC', exchangeRate: 500, monthlyBudget: 0 },
   }
 
+  it('un mes de pago fijado por el estado de cuenta manda sobre el calculado', () => {
+    const d = { ...data, expenses: [{ ...data.expenses[0], date: '2026-09-06', paymentMonth: '2026-10' }] }
+    expect(chargesForMonth(d, '2026-10').map((c) => c.sourceId)).toContain('e1')
+    expect(chargesForMonth(d, '2026-09').map((c) => c.sourceId)).not.toContain('e1')
+  })
+
   it('agrupa por mes de pago, no por fecha de compra', () => {
     const ids = chargesForMonth(data, '2026-11').map((c) => c.sourceId).sort()
     expect(ids).toEqual(['e1', 'e2', 'f1', 'i1'])
