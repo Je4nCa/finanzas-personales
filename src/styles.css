@@ -683,3 +683,5 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 .gate-icon svg { width: 34px; height: 34px; stroke-width: 1.6; }
 .gate-form { width: 100%; text-align: left; }
 .gate-error { white-space: normal; padding: 8px 10px; align-self: stretch; }
+.gate-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.gate-divider::before, .gate-divider::after { content: ''; flex: 1; height: 1px; background: var(--line-strong); }

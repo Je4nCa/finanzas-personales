@@ -1,19 +1,20 @@
 /**
- * Bloqueo con Face ID / Touch ID usando una passkey de este dispositivo (WebAuthn).
- * Es un candado local: el sistema exige la biometría para firmar, y sin firma no se muestra la app.
- * La sesión de Supabase sigue siendo la que protege los datos en la nube.
+ * Face ID / Touch ID con la passkey de la cuenta (registrada en Supabase, guardada en el llavero de iCloud).
+ * - Iniciar sesión: Supabase verifica la passkey y crea la sesión (ver sync/engine).
+ * - Bloqueo al abrir: se pide la misma passkey localmente, sin red; sin Face ID no se muestra la app.
  */
 
 const KEY = 'finanzas-lock'
 
 interface Lock {
-  credentialId: string
   email: string
+  /** true = passkey registrada en Supabase (sirve también para iniciar sesión). */
+  server?: boolean
+  /** Versión anterior: passkey solo local, no sirve para iniciar sesión. */
+  credentialId?: string
 }
 
 const random = (n: number) => crypto.getRandomValues(new Uint8Array(n))
-const toB64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-const fromB64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
 
 export async function biometricAvailable(): Promise<boolean> {
   try {
@@ -32,6 +33,22 @@ export function getLock(): Lock | null {
   }
 }
 
+/** La passkey del bloqueo también sirve para entrar sin contraseña. */
+export const lockUsesServerPasskey = () => getLock()?.server === true
+
+export function saveServerLock(email: string) {
+  const old = getLock()
+  localStorage.setItem(KEY, JSON.stringify({ email, server: true } satisfies Lock))
+  // La passkey solo local de la versión anterior ya no sirve: se le avisa al sistema para que la quite del llavero.
+  if (old?.credentialId) forgetLegacyPasskey(old.credentialId)
+}
+
+function forgetLegacyPasskey(credentialId: string) {
+  const signal = (PublicKeyCredential as unknown as { signalUnknownCredential?: (o: { rpId: string; credentialId: string }) => Promise<void> })
+    .signalUnknownCredential
+  void signal?.call(PublicKeyCredential, { rpId: location.hostname, credentialId }).catch(() => {})
+}
+
 export function disableLock() {
   try {
     localStorage.removeItem(KEY)
@@ -40,38 +57,10 @@ export function disableLock() {
   }
 }
 
-/** Crea la passkey (el sistema pide Face ID / Touch ID). Debe llamarse desde un toque del usuario. */
-export async function enableLock(email: string) {
-  const cred = (await navigator.credentials.create({
-    publicKey: {
-      rp: { name: 'Finanzas Personales', id: location.hostname },
-      user: { id: random(16), name: email, displayName: email },
-      challenge: random(32),
-      pubKeyCredParams: [
-        { type: 'public-key', alg: -7 },
-        { type: 'public-key', alg: -257 },
-      ],
-      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
-      attestation: 'none',
-      timeout: 60_000,
-    },
-  })) as PublicKeyCredential | null
-  if (!cred) throw new Error('No se pudo activar el bloqueo')
-  localStorage.setItem(KEY, JSON.stringify({ credentialId: toB64(cred.rawId), email } satisfies Lock))
-}
-
-/** Pide Face ID / Touch ID. Lanza error si se cancela o falla. */
+/** Pide Face ID / Touch ID con cualquier passkey de la app. Funciona sin internet. Lanza error si se cancela. */
 export async function unlockWithBiometric() {
-  const lock = getLock()
-  if (!lock) return
   const assertion = await navigator.credentials.get({
-    publicKey: {
-      challenge: random(32),
-      rpId: location.hostname,
-      allowCredentials: [{ type: 'public-key', id: fromB64(lock.credentialId) }],
-      userVerification: 'required',
-      timeout: 60_000,
-    },
+    publicKey: { challenge: random(32), rpId: location.hostname, userVerification: 'required', timeout: 60_000 },
   })
   if (!assertion) throw new Error('No se pudo verificar')
 }

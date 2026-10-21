@@ -1,7 +1,7 @@
 import { Fingerprint, LockKeyhole, ScanFace } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { create } from 'zustand'
-import { biometricAvailable, disableLock, enableLock, getLock, unlockWithBiometric } from '../lib/biometric'
+import { biometricAvailable, disableLock, getLock, lockUsesServerPasskey, saveServerLock, unlockWithBiometric } from '../lib/biometric'
 import { loadEngine, syncConfigured, useSyncStatus } from '../sync/status'
 import { Field } from './ui'
 
@@ -19,7 +19,8 @@ interface Gate {
 export const useGate = create<Gate>()(() => ({
   locked: getLock() !== null,
   covered: false,
-  setupDone: getLock() !== null || readSkip(),
+  // La versión anterior guardaba una passkey solo local: se ofrece actualizarla.
+  setupDone: lockUsesServerPasskey() || readSkip(),
 }))
 
 function readSkip() {
@@ -91,6 +92,8 @@ function authError(e: unknown): string {
   if (/email not confirmed/i.test(msg)) return 'Falta confirmar el correo: revisá tu bandeja y tocá el enlace.'
   if (/failed to fetch|network|load failed/i.test(msg)) return 'Sin conexión con el servidor. Revisá tu internet.'
   if (/notallowed|cancel|abort|timed out/i.test(msg)) return `Se canceló ${BIO}. Probá otra vez o usá tu contraseña.`
+  if (/passkey|webauthn/i.test(msg) && /disabled|not enabled|not_enabled/i.test(msg)) return 'Las passkeys todavía no están activadas en Supabase.'
+  if (/credential|passkey/i.test(msg) && /not found|unknown|invalid/i.test(msg)) return `Ese ${BIO} no está registrado en tu cuenta. Entrá con tu contraseña y activalo de nuevo.`
   return msg
 }
 
@@ -135,9 +138,41 @@ function PasswordForm({ email: fixedEmail, submitLabel, onDone }: { email?: stri
 }
 
 function LoginScreen() {
+  const [canPasskey, setCanPasskey] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    void biometricAvailable().then(setCanPasskey)
+  }, [])
+
+  const passkeyLogin = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const email = await (await loadEngine()).signInWithPasskey()
+      // Acaba de pasar Face ID: entra sin pedirlo otra vez, y la passkey queda como candado.
+      if (email) saveServerLock(email)
+      useGate.setState({ locked: false, setupDone: true })
+    } catch (e) {
+      setError(authError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <GateShell icon={<LockKeyhole />} title="Finanzas Personales" subtitle="Iniciá sesión para ver tus finanzas.">
-      <PasswordForm submitLabel="Entrar" />
+      {canPasskey && (
+        <div className="form gate-form" style={{ marginBottom: 18 }}>
+          {error && <div className="chip red gate-error">{error}</div>}
+          <button className="pill-btn dark block" disabled={busy} onClick={() => void passkeyLogin()}>
+            {isMac ? <Fingerprint /> : <ScanFace />} Entrar con {BIO}
+          </button>
+          <div className="gate-divider">o con tu contraseña</div>
+        </div>
+      )}
+      <PasswordForm submitLabel="Entrar" onDone={() => useGate.setState({ locked: false })} />
     </GateShell>
   )
 }
@@ -186,6 +221,7 @@ function LockScreen({ email }: { email: string }) {
 }
 
 function EnableLockScreen({ email }: { email: string }) {
+  const upgrading = getLock() !== null
   const [available, setAvailable] = useState<boolean | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -200,7 +236,8 @@ function EnableLockScreen({ email }: { email: string }) {
   const enable = async () => {
     setError(null)
     try {
-      await enableLock(email)
+      await (await loadEngine()).registerPasskey()
+      saveServerLock(email)
       useGate.setState({ setupDone: true, locked: false })
     } catch (e) {
       setError(authError(e))
@@ -221,8 +258,12 @@ function EnableLockScreen({ email }: { email: string }) {
   return (
     <GateShell
       icon={isMac ? <Fingerprint /> : <ScanFace />}
-      title={`Protegé la app con ${BIO}`}
-      subtitle={`Cada vez que abras la app te va a pedir ${BIO}. Si alguna vez falla, podés entrar con tu contraseña.`}
+      title={upgrading ? `Actualizá ${BIO}` : `Protegé la app con ${BIO}`}
+      subtitle={
+        upgrading
+          ? `Ahora ${BIO} también te sirve para entrar después de cerrar sesión, sin correo ni contraseña.`
+          : `Cada vez que abras la app te va a pedir ${BIO}, y también te sirve para entrar sin contraseña.`
+      }
     >
       <div className="form gate-form">
         {error && <div className="chip red gate-error">{error}</div>}
@@ -242,18 +283,14 @@ export const lockControls = {
   label: BIO,
   isOn: () => getLock() !== null,
   enable: async (email: string) => {
-    await enableLock(email)
+    await (await loadEngine()).registerPasskey()
+    saveServerLock(email)
     useGate.setState({ setupDone: true })
   },
   disable: () => disableLock(),
+  // Face ID queda guardado: después de cerrar sesión se vuelve a entrar con él.
   signOut: async () => {
     await (await loadEngine()).signOut()
-    disableLock()
-    try {
-      localStorage.removeItem(SKIP_KEY)
-    } catch {
-      // Nada que limpiar.
-    }
-    useGate.setState({ locked: false, setupDone: false })
+    useGate.setState({ locked: false })
   },
 }

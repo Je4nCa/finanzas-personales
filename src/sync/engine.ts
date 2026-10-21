@@ -232,6 +232,19 @@ export async function signIn(email: string, password: string) {
   if (error) throw error
 }
 
+/** Registra una passkey (Face ID / Touch ID) en la cuenta. Requiere sesión. */
+export async function registerPasskey() {
+  const { error } = await supabase.auth.registerPasskey()
+  if (error) throw error
+}
+
+/** Inicia sesión con la passkey de la cuenta, sin correo ni contraseña. Devuelve el correo. */
+export async function signInWithPasskey(): Promise<string> {
+  const { data, error } = await supabase.auth.signInWithPasskey()
+  if (error) throw error
+  return data.user?.email ?? ''
+}
+
 export async function signUp(email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + import.meta.env.BASE_URL } })
   if (error) throw error

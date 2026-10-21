@@ -186,14 +186,15 @@ minimum_password_length = 6
 password_requirements = ""
 
 # Configure passkey sign-ins.
-# [auth.passkey]
-# enabled = false
+[auth.passkey]
+enabled = true
 
 # Configure WebAuthn relying party settings (required when passkey is enabled).
-# [auth.webauthn]
-# rp_display_name = "Supabase"
-# rp_id = "localhost"
-# rp_origins = ["http://127.0.0.1:3000"]
+# La passkey queda ligada al dominio de GitHub Pages (Face ID / Touch ID, llavero de iCloud).
+[auth.webauthn]
+rp_display_name = "Finanzas Personales"
+rp_id = "je4nca.github.io"
+rp_origins = ["https://je4nca.github.io"]
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.

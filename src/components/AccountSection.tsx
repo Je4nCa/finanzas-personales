@@ -82,7 +82,7 @@ export function AccountSection() {
         <div className="row">
           <div className="spacer">
             <div style={{ fontWeight: 520 }}>Bloqueo con {lockControls.label}</div>
-            <div className="sync-state">{lockOn ? 'Se pide al abrir la app' : 'Desactivado'}</div>
+            <div className="sync-state">{lockOn ? 'Se pide al abrir la app y sirve para entrar' : 'Desactivado'}</div>
           </div>
           <button className={`pill-btn ${lockOn ? 'glass' : 'dark'}`} disabled={busy} onClick={toggleLock}>
             {lockOn ? 'Desactivar' : 'Activar'}
@@ -108,7 +108,7 @@ export function AccountSection() {
             <LogOut /> Cerrar sesión
           </button>
         </div>
-        <p className="fine-print">Al cerrar sesión se borran tus datos de este dispositivo; siguen guardados en tu cuenta.</p>
+        <p className="fine-print">Al cerrar sesión se borran tus datos de este dispositivo; siguen guardados en tu cuenta y volvés a entrar con {lockControls.label}.</p>
       </div>
     </>
   )
