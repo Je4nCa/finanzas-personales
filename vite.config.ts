@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -5,7 +6,27 @@ import { VitePWA } from 'vite-plugin-pwa'
 // GitHub Pages sirve la app en /finanzas-personales/.
 const base = process.env.GITHUB_ACTIONS ? '/finanzas-personales/' : '/'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Vista previa como artifact: rutas relativas, sin service worker y con datos de ejemplo.
+  if (mode === 'artifact') {
+    return {
+      base: './',
+      plugins: [react()],
+      resolve: {
+        alias: {
+          'virtual:pwa-register': fileURLToPath(new URL('./src/pwa-stub.ts', import.meta.url)),
+          exceljs: fileURLToPath(new URL('./src/exceljs-stub.ts', import.meta.url)),
+        },
+      },
+      define: { 'import.meta.env.VITE_DEMO': JSON.stringify('1') },
+      build: {
+        outDir: 'dist-artifact',
+        // Nombres estables: cada republicación del artifact reemplaza los mismos archivos.
+        rolldownOptions: { output: { entryFileNames: 'assets/[name].js', chunkFileNames: 'assets/[name].js', assetFileNames: 'assets/[name][extname]' } },
+      },
+    }
+  }
+  return {
   base,
   build: { chunkSizeWarningLimit: 1000 },
   plugins: [
@@ -36,4 +57,5 @@ export default defineConfig({
       },
     }),
   ],
+}
 })

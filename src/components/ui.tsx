@@ -1,9 +1,11 @@
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Wallet, X } from 'lucide-react'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, monthLabel } from '../domain/dates'
 import { formatMoney } from '../domain/finance'
 import type { Card, Currency } from '../domain/types'
 import { useUi } from '../store/store'
+import { useOverlay } from '../store/ui'
+import { BankBadge, bankOf, NetworkLogo, networkOf } from './logos'
 
 export function Money({ amount, currency, compact }: { amount: number; currency: Currency; compact?: boolean }) {
   return <span className="num">{formatMoney(amount, currency, { compact })}</span>
@@ -79,11 +81,11 @@ export function CreditCard({ card, label, amount, currency }: { card: Card; labe
   return (
     <div className={`cc cc-theme-${card.theme % 6}`}>
       <div className="cc-top">
-        <span className="cc-name">{card.name}</span>
-        <svg width="34" height="22" viewBox="0 0 34 22" aria-hidden>
-          <circle cx="12" cy="11" r="10" fill="currentColor" opacity=".85" />
-          <circle cx="22" cy="11" r="10" fill="currentColor" opacity=".45" />
-        </svg>
+        <span className="cc-name">
+          <BankBadge bank={bankOf(card)} />
+          {card.name}
+        </span>
+        <NetworkLogo network={networkOf(card)} />
       </div>
       <div className="cc-bottom">
         <div className="row">
@@ -112,6 +114,10 @@ export function Empty({ text, action }: { text: string; action?: ReactNode }) {
 }
 
 export function Sheet({ title, onClose, children, actions }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
+  const closing = useOverlay((s) => s.closing)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ startY: number; dy: number; t: number } | null>(null)
+
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -122,21 +128,56 @@ export function Sheet({ title, onClose, children, actions }: { title: string; on
       window.removeEventListener('keydown', onKey)
     }
   }, [onClose])
+
+  // Arrastrar desde la manija para cerrar, como los sheets de iOS. Solo se mueve transform.
+  const onPointerDown = (e: ReactPointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return
+    drag.current = { startY: e.clientY, dy: 0, t: performance.now() }
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    sheetRef.current?.classList.add('dragging')
+  }
+  const onPointerMove = (e: ReactPointerEvent) => {
+    const d = drag.current
+    if (!d || !sheetRef.current) return
+    const raw = e.clientY - d.startY
+    // Hacia arriba ofrece resistencia; hacia abajo sigue el dedo.
+    d.dy = raw > 0 ? raw : raw / 6
+    sheetRef.current.style.transform = `translateY(${d.dy}px)`
+  }
+  const onPointerUp = () => {
+    const d = drag.current
+    const el = sheetRef.current
+    drag.current = null
+    if (!d || !el) return
+    el.classList.remove('dragging')
+    const velocity = d.dy / Math.max(1, performance.now() - d.t)
+    if (d.dy > 120 || (d.dy > 30 && velocity > 0.5)) {
+      el.style.transform = ''
+      onClose()
+    } else {
+      el.classList.add('settling')
+      el.style.transform = ''
+      setTimeout(() => el.classList.remove('settling'), 400)
+    }
+  }
+
   return (
-    <>
+    <div className={closing ? 'closing' : ''}>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="sheet-grip" />
-        <div className="sheet-head">
-          <h2>{title}</h2>
-          {actions}
-          <button className="icon-btn round glass" onClick={onClose} aria-label="Cerrar">
-            <X />
-          </button>
+      <div className="sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="sheet-grip-area" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+          <div className="sheet-grip" />
+          <div className="sheet-head">
+            <h2>{title}</h2>
+            {actions}
+            <button className="icon-btn round glass" onClick={onClose} aria-label="Cerrar">
+              <X />
+            </button>
+          </div>
         </div>
         {children}
       </div>
-    </>
+    </div>
   )
 }
 
@@ -211,7 +252,7 @@ export function Gauge({ value, label, display, color = 'var(--purple)' }: { valu
   return (
     <div className="gauge">
       <svg viewBox="0 0 220 120">
-        <path d="M20 110 A90 90 0 0 1 200 110" fill="none" stroke="#ebebf0" strokeWidth="18" strokeLinecap="round" />
+        <path d="M20 110 A90 90 0 0 1 200 110" fill="none" stroke="var(--track)" strokeWidth="18" strokeLinecap="round" />
         <path
           d="M20 110 A90 90 0 0 1 200 110"
           fill="none"

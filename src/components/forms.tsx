@@ -2,11 +2,13 @@ import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, dateLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
 import { formatMoney, paymentMonthFor } from '../domain/finance'
-import type { Card, CardPayment, Currency, Expense, FixedExpense, Income, Installment } from '../domain/types'
+import type { Card, CardBank, CardNetwork, CardPayment, Currency, Expense, FixedExpense, Income, Installment } from '../domain/types'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { cardSwatch, CardPicker, Field, MoneyInput, Segmented, Sheet } from './ui'
+import { QuickAdd } from './QuickAdd'
 import { SettingsSheet } from './SettingsSheet'
+import { BankBadge, detectBank, detectNetwork, NetworkLogo } from './logos'
 
 export const CATEGORIES = ['Comida', 'Súper', 'Transporte', 'Compras', 'Salud', 'Hogar', 'Ocio', 'Otros']
 
@@ -79,12 +81,13 @@ function Hint({ children }: { children: ReactNode }) {
 function ExpenseForm({ id, preset }: SheetState) {
   const { expenses, cards, upsert, remove, settings } = useData()
   const existing = expenses.find((e) => e.id === id)
-  const [description, setDescription] = useState(existing?.description ?? '')
-  const [amount, setAmount] = useState(existing ? String(existing.amount) : '')
-  const [currency, setCurrency] = useState<Currency>(existing?.currency ?? settings.baseCurrency)
-  const [date, setDate] = useState(existing?.date ?? todayKey())
-  const [cardId, setCardId] = useState<string | null>(existing ? existing.cardId : ((preset?.cardId as string) ?? cards[0]?.id ?? null))
-  const [category, setCategory] = useState(existing?.category ?? 'Comida')
+  const p = (preset ?? {}) as Partial<Record<'description' | 'amount' | 'currency' | 'date' | 'category', string>> & { cardId?: string | null }
+  const [description, setDescription] = useState(existing?.description ?? p.description ?? '')
+  const [amount, setAmount] = useState(existing ? String(existing.amount) : (p.amount ?? ''))
+  const [currency, setCurrency] = useState<Currency>(existing?.currency ?? (p.currency as Currency) ?? settings.baseCurrency)
+  const [date, setDate] = useState(existing?.date ?? p.date ?? todayKey())
+  const [cardId, setCardId] = useState<string | null>(existing ? existing.cardId : p.cardId !== undefined ? p.cardId : (cards[0]?.id ?? null))
+  const [category, setCategory] = useState(existing?.category ?? p.category ?? 'Comida')
   const card = cards.find((c) => c.id === cardId)
   const n = parseAmount(amount)
 
@@ -340,6 +343,11 @@ function CardForm({ id }: SheetState) {
   const [closingDay, setClosingDay] = useState(String(existing?.closingDay ?? ''))
   const [paymentDay, setPaymentDay] = useState(String(existing?.paymentDay ?? ''))
   const [theme, setTheme] = useState(existing?.theme ?? cards.length % 6)
+  // undefined = deducir del nombre mientras el usuario no elija.
+  const [network, setNetwork] = useState<CardNetwork | undefined>(existing?.network)
+  const [bank, setBank] = useState<CardBank | undefined>(existing?.bank)
+  const shownNetwork = network !== undefined ? network : detectNetwork(name)
+  const shownBank = bank !== undefined ? bank : detectBank(name)
   const cd = parseInt(closingDay, 10)
   const pd = parseInt(paymentDay, 10)
   const validDay = (d: number) => Number.isInteger(d) && d >= 1 && d <= 31
@@ -351,7 +359,9 @@ function CardForm({ id }: SheetState) {
       title={existing ? 'Editar tarjeta' : 'Nueva tarjeta'}
       valid={valid}
       onDelete={existing && (() => remove('cards', existing.id))}
-      onSubmit={() => upsert('cards', { id: existing?.id ?? newId(), name: name.trim(), lastFour, closingDay: cd, paymentDay: pd, theme } satisfies Card)}
+      onSubmit={() =>
+        upsert('cards', { id: existing?.id ?? newId(), name: name.trim(), lastFour, closingDay: cd, paymentDay: pd, theme, network: shownNetwork, bank: shownBank } satisfies Card)
+      }
     >
       <Field label="Nombre">
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. BAC Visa, BCR Mastercard" autoFocus={!existing} />
@@ -372,6 +382,31 @@ function CardForm({ id }: SheetState) {
           Una compra de hoy ({dateLabel(today)}) se paga en {monthLabel(paymentMonthFor({ closingDay: cd, paymentDay: pd }, today))}
         </Hint>
       )}
+      <Field label="Red">
+        <div className="choice-row">
+          {(['visa', 'mastercard', null] as CardNetwork[]).map((n) => (
+            <button key={String(n)} type="button" className={`choice ${shownNetwork === n ? 'on' : ''}`} onClick={() => setNetwork(n)}>
+              {n ? <NetworkLogo network={n} size={14} /> : 'Otra'}
+            </button>
+          ))}
+        </div>
+      </Field>
+      <Field label="Banco">
+        <div className="choice-row">
+          {(['bac', 'wink', null] as CardBank[]).map((b) => (
+            <button key={String(b)} type="button" className={`choice ${shownBank === b ? 'on' : ''}`} onClick={() => setBank(b)}>
+              {b ? (
+                <>
+                  <BankBadge bank={b} />
+                  {b === 'bac' ? 'BAC' : 'Wink'}
+                </>
+              ) : (
+                'Otro'
+              )}
+            </button>
+          ))}
+        </div>
+      </Field>
       <Field label="Color">
         <div className="choice-row">
           {[0, 1, 2, 3, 4, 5].map((t) => (
@@ -398,6 +433,8 @@ export function SheetHost() {
   // key fuerza estado nuevo al abrir otro registro.
   const key = `${sheet.kind}-${sheet.id ?? 'new'}`
   switch (sheet.kind) {
+    case 'quick':
+      return <QuickAdd key={key} {...sheet} />
     case 'expense':
       return <ExpenseForm key={key} {...sheet} />
     case 'fixed':

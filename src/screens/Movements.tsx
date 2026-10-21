@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { dateLabel, monthLabel, monthOf } from '../domain/dates'
 import { sumByCurrency, toBase } from '../domain/finance'
 import type { Card } from '../domain/types'
+import { ExpenseIcon } from '../components/logos'
 import { cardSwatch, Empty, Money, MonthNav, Segmented } from '../components/ui'
 import { useOverlay } from '../store/ui'
 import { useMonthView } from '../store/useMonth'
@@ -33,7 +34,7 @@ export function Movements() {
 function CardTag({ card }: { card?: Card }) {
   return (
     <span className="row" style={{ gap: 5 }}>
-      <span style={{ width: 8, height: 8, borderRadius: 3, background: card ? cardSwatch(card.theme) : '#c4c4cc' }} />
+      <span style={{ width: 8, height: 8, borderRadius: 3, background: card ? cardSwatch(card.theme) : 'var(--faint)' }} />
       {card?.name ?? 'Efectivo'}
     </span>
   )
@@ -69,6 +70,7 @@ function Expenses() {
           <div className="list">
             {list.map((c) => (
               <button key={c.sourceId} className="list-item" onClick={() => open({ kind: 'expense', id: c.sourceId })}>
+                <ExpenseIcon description={c.description} category={c.category} />
                 <div className="li-main">
                   <div className="li-title">{c.description}</div>
                   <div className="li-sub">
@@ -82,7 +84,7 @@ function Expenses() {
           </div>
         )}
       </div>
-      <AddButton label="Agregar gasto" onClick={() => open({ kind: 'expense' })} />
+      <AddButton label="Agregar gasto" onClick={() => open({ kind: 'quick' })} />
     </>
   )
 }
@@ -110,6 +112,7 @@ function Fixed() {
               const active = isActive(f)
               return (
                 <button key={f.id} className="list-item" onClick={() => open({ kind: 'fixed', id: f.id })} style={{ opacity: active ? 1 : 0.5 }}>
+                  <ExpenseIcon description={f.description} />
                   <div className="li-main">
                     <div className="li-title">{f.description}</div>
                     <div className="li-sub">

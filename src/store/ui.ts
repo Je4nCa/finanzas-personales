@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type SheetKind = 'expense' | 'fixed' | 'installment' | 'income' | 'payment' | 'card' | 'settings'
+export type SheetKind = 'quick' | 'expense' | 'fixed' | 'installment' | 'income' | 'payment' | 'card' | 'settings'
 
 export interface SheetState {
   kind: SheetKind
@@ -12,6 +12,8 @@ export interface SheetState {
 
 interface Overlay {
   sheet: SheetState | null
+  /** true mientras el sheet anima su salida. */
+  closing: boolean
   toast: string | null
   open: (s: SheetState) => void
   close: () => void
@@ -19,12 +21,21 @@ interface Overlay {
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
+let closeTimer: ReturnType<typeof setTimeout> | undefined
 
-export const useOverlay = create<Overlay>()((set) => ({
+export const useOverlay = create<Overlay>()((set, get) => ({
   sheet: null,
+  closing: false,
   toast: null,
-  open: (sheet) => set({ sheet }),
-  close: () => set({ sheet: null }),
+  open: (sheet) => {
+    clearTimeout(closeTimer)
+    set({ sheet, closing: false })
+  },
+  close: () => {
+    if (!get().sheet || get().closing) return
+    set({ closing: true })
+    closeTimer = setTimeout(() => set({ sheet: null, closing: false }), 280)
+  },
   showToast: (toast) => {
     clearTimeout(toastTimer)
     set({ toast })

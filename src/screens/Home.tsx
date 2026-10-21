@@ -18,7 +18,7 @@ export function budgetStatus(usage: number): { label: string; tone: 'green' | 'a
 }
 
 const ACTIONS: { kind: SheetKind; label: string; icon: typeof Plus }[] = [
-  { kind: 'expense', label: 'Gasto', icon: ShoppingBag },
+  { kind: 'quick', label: 'Gasto', icon: ShoppingBag },
   { kind: 'fixed', label: 'Fijo', icon: Repeat },
   { kind: 'installment', label: 'Tasa cero', icon: CalendarClock },
   { kind: 'income', label: 'Ingreso', icon: ArrowDownLeft },
@@ -135,7 +135,7 @@ function History({ data, month }: { data: AppData; month: MonthKey }) {
       <div className="card-head">
         <span className="title">Últimos 6 meses</span>
         <div className="legend">
-          <span><i style={{ background: '#c8c4f7' }} />Ingresos</span>
+          <span><i style={{ background: 'var(--bar-in)' }} />Ingresos</span>
           <span><i style={{ background: 'var(--purple)' }} />Gastos</span>
         </div>
       </div>

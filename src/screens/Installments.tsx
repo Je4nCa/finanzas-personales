@@ -2,7 +2,8 @@ import { CalendarClock } from 'lucide-react'
 import { addMonths, monthLabel, monthShort, parseMonth } from '../domain/dates'
 import { formatMoney, installmentAmount, installmentIndex, sumByCurrency, toBase } from '../domain/finance'
 import type { Installment } from '../domain/types'
-import { cardSwatch, Empty, IconTile, Money, MonthNav, Progress } from '../components/ui'
+import { ExpenseIcon } from '../components/logos'
+import { Empty, IconTile, Money, MonthNav, Progress } from '../components/ui'
 import { useData } from '../store/store'
 import { useOverlay } from '../store/ui'
 import { useMonthView } from '../store/useMonth'
@@ -70,7 +71,7 @@ function InstallmentCard({ inst }: { inst: Installment }) {
   return (
     <div className="card" style={{ opacity: idx < 0 && paidCount === inst.months ? 0.6 : 1 }}>
       <button className="card-head" style={{ width: '100%', textAlign: 'left' }} onClick={() => open({ kind: 'installment', id: inst.id })}>
-        <span className="icon-tile" style={{ background: card ? cardSwatch(card.theme) : 'var(--surface-2)', border: 0 }} />
+        <ExpenseIcon description={inst.description} category="Compras" />
         <div className="spacer">
           <div className="title">{inst.description}</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>

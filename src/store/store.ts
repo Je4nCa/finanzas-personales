@@ -18,7 +18,7 @@ export const emptyData = (): AppData => ({
   installments: [],
   payments: [],
   incomes: [],
-  settings: { userName: '', baseCurrency: 'CRC', exchangeRate: 510, monthlyBudget: 0 },
+  settings: { userName: '', theme: 'system', baseCurrency: 'CRC', exchangeRate: 510, monthlyBudget: 0 },
 })
 
 type Collection = Exclude<keyof AppData, 'settings'>
@@ -68,12 +68,17 @@ export const useData = create<AppData & Actions>()(
               : { ...i, paidMonths: i.paidMonths.includes(month) ? i.paidMonths.filter((m) => m !== month) : [...i.paidMonths, month] },
           ),
         })),
-      replaceAll: (data) => setState({ ...emptyData(), ...data }),
+      replaceAll: (data) => setState({ ...emptyData(), ...data, settings: { ...emptyData().settings, ...data.settings } }),
     }),
     {
       name: 'finanzas-data',
       version: 1,
       storage: createJSONStorage(() => idbStorage),
+      // Los ajustes guardados antes de agregar un campo nuevo no lo traen: se completan con los valores por defecto.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<AppData>
+        return { ...current, ...p, settings: { ...current.settings, ...p.settings } }
+      },
       partialize: (s): AppData => ({
         cards: s.cards,
         expenses: s.expenses,
@@ -86,6 +91,23 @@ export const useData = create<AppData & Actions>()(
     },
   ),
 )
+
+// En la vista previa (artifact) arranca con datos de ejemplo si no hay nada guardado.
+if (import.meta.env.VITE_DEMO) {
+  useData.persist.onFinishHydration((s) => {
+    import('../demo').then(({ demoData, DEMO_VERSION }) => {
+      let seen: string | null = null
+      try {
+        seen = localStorage.getItem('demo-version')
+        localStorage.setItem('demo-version', String(DEMO_VERSION))
+      } catch {
+        // Sin almacenamiento: se muestran los ejemplos igual.
+      }
+      // Datos vacíos o de una versión anterior de los ejemplos → se cargan los nuevos.
+      if ((s.cards.length === 0 && s.expenses.length === 0) || seen !== String(DEMO_VERSION)) s.replaceAll(demoData())
+    })
+  })
+}
 
 export const useUi = create<UiState>()((setState) => ({
   month: currentMonth(),

@@ -24,7 +24,7 @@ export function SettingsSheet() {
       showToast('Reporte exportado')
     } catch (e) {
       console.error(e)
-      showToast('No se pudo exportar')
+      showToast(e instanceof Error && e.message.includes('app instalada') ? e.message : 'No se pudo exportar')
     } finally {
       setBusy(false)
     }
@@ -54,6 +54,17 @@ export function SettingsSheet() {
       <div className="form">
         <Field label="Tu nombre">
           <input className="input" value={settings.userName} onChange={(e) => updateSettings({ userName: e.target.value })} placeholder="Jean" />
+        </Field>
+        <Field label="Apariencia">
+          <Segmented
+            value={settings.theme}
+            onChange={(theme) => updateSettings({ theme })}
+            options={[
+              { value: 'system', label: 'Auto' },
+              { value: 'light', label: 'Claro' },
+              { value: 'dark', label: 'Oscuro' },
+            ]}
+          />
         </Field>
         <Field label="Moneda principal (totales)">
           <Segmented

@@ -48,7 +48,7 @@ describe('resumen del mes', () => {
     installments: [{ id: 'i1', description: 'iPhone', total: 1200, currency: 'USD', cardId: 'c1', months: 12, firstMonth: '2026-06', paidMonths: [] }],
     payments: [{ id: 'p1', cardId: 'c1', month: '2026-11', amount: 60, currency: 'USD', date: '2026-10-30' }],
     incomes: [{ id: 'n1', description: 'Salario', amount: 500000, currency: 'CRC', date: '2026-11-15', fortnight: 1 }],
-    settings: { userName: '', baseCurrency: 'CRC', exchangeRate: 500, monthlyBudget: 0 },
+    settings: { userName: '', theme: 'system', baseCurrency: 'CRC', exchangeRate: 500, monthlyBudget: 0 },
   }
 
   it('agrupa por mes de pago, no por fecha de compra', () => {

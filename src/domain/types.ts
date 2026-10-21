@@ -8,6 +8,9 @@ export type DateKey = string
 
 export type Money = { amount: number; currency: Currency }
 
+export type CardNetwork = 'visa' | 'mastercard' | null
+export type CardBank = 'bac' | 'wink' | null
+
 export interface Card {
   id: string
   name: string
@@ -18,6 +21,9 @@ export interface Card {
   paymentDay: number
   /** Índice del degradado visual de la tarjeta. */
   theme: number
+  /** Ausente = se deduce del nombre. */
+  network?: CardNetwork
+  bank?: CardBank
 }
 
 /** Gasto variable: compras del día a día. */
@@ -79,8 +85,11 @@ export interface Income {
   fortnight: 1 | 2
 }
 
+export type ThemePref = 'system' | 'light' | 'dark'
+
 export interface Settings {
   userName: string
+  theme: ThemePref
   /** Moneda en que se muestran los totales. */
   baseCurrency: Currency
   /** Colones por 1 dólar. */

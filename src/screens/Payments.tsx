@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { dateLabel, dayInMonthLabel, monthLabel, todayKey } from '../domain/dates'
 import { toBase, type CardMonthSummary } from '../domain/finance'
 import type { Currency } from '../domain/types'
+import { ExpenseIcon, NetworkLogo, networkOf } from '../components/logos'
 import { cardSwatch, Empty, Money, MonthNav, Progress } from '../components/ui'
 import { newId, useData } from '../store/store'
 import { useOverlay } from '../store/ui'
@@ -82,7 +83,9 @@ function CardPaymentCard({ s }: { s: CardMonthSummary }) {
   return (
     <div className="card">
       <div className="card-head">
-        <span className="icon-tile" style={{ background: cardSwatch(s.card.theme), border: 0 }} />
+        <span className="icon-tile" style={{ background: cardSwatch(s.card.theme), border: 0, color: '#fff' }}>
+          <NetworkLogo network={networkOf(s.card)} size={13} />
+        </span>
         <div className="spacer">
           <div className="title">{s.card.name}</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
@@ -146,6 +149,7 @@ function CardPaymentCard({ s }: { s: CardMonthSummary }) {
                   className="list-item"
                   onClick={() => open({ kind: c.kind === 'variable' ? 'expense' : c.kind === 'fijo' ? 'fixed' : 'installment', id: c.sourceId })}
                 >
+                  <ExpenseIcon description={c.description} category={c.category} />
                   <div className="li-main">
                     <div className="li-title">{c.description}</div>
                     <div className="li-sub">
