@@ -1,12 +1,13 @@
 import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, dateLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
-import { cardLabel, CURRENCY_LABEL, fixedCurrency, isCredit, KIND_LABEL } from '../domain/cards'
+import { cardLabel, CURRENCY_LABEL, defaultAccount, fixedCurrency, isCredit, KIND_LABEL } from '../domain/cards'
 import { formatMoney, paymentMonthFor } from '../domain/finance'
 import type { Card, CardBank, CardCurrency, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment } from '../domain/types'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
-import { cardSwatch, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
+import { AccountPicker, cardSwatch, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
+import { BalanceSheet } from './BalanceSheet'
 import { ImportSheet } from './ImportSheet'
 import { QuickAdd } from './QuickAdd'
 import { SettingsSheet } from './SettingsSheet'
@@ -118,6 +119,7 @@ function ExpenseForm({ id, preset }: SheetState) {
           category,
           scope,
           paymentMonth: fixedMonth,
+          createdAt: existing ? existing.createdAt : new Date().toISOString(),
         } satisfies Expense)
       }
     >
@@ -295,16 +297,20 @@ function InstallmentForm({ id, preset }: SheetState) {
 /* ---------------- Ingreso ---------------- */
 
 function IncomeForm({ id, preset }: SheetState) {
-  const { incomes, upsert, remove, settings } = useData()
+  const { incomes, cards, upsert, remove, settings } = useData()
   const month = useUi((s) => s.month)
   const existing = incomes.find((i) => i.id === id)
-  const p = (preset ?? {}) as Partial<{ description: string; amount: string; currency: Currency; date: string; fortnight: 1 | 2 }>
+  const p = (preset ?? {}) as Partial<{ description: string; amount: string; currency: Currency; date: string; fortnight: 1 | 2; accountId: string | null }>
   const defaultDate = p.date ?? (month === currentMonth() ? todayKey() : `${month}-15`)
   const [description, setDescription] = useState(existing?.description ?? p.description ?? 'Salario')
   const [amount, setAmount] = useState(existing ? String(existing.amount) : (p.amount ?? ''))
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? p.currency ?? settings.baseCurrency)
   const [date, setDate] = useState(existing?.date ?? defaultDate)
   const [fortnight, setFortnight] = useState<1 | 2>(existing?.fortnight ?? p.fortnight ?? (parseDate(defaultDate).day <= 15 ? 1 : 2))
+  const [accountId, setAccountId] = useState<string | null>(existing ? (existing.accountId ?? null) : p.accountId !== undefined ? p.accountId : defaultAccount(cards, incomes))
+  // Una cuenta de una sola moneda recibe sí o sí en esa moneda.
+  const lockCur = fixedCurrency(cards.find((c) => c.id === accountId))
+  const cur = lockCur ?? currency
   const n = parseAmount(amount)
 
   return (
@@ -312,11 +318,26 @@ function IncomeForm({ id, preset }: SheetState) {
       title={existing ? 'Editar ingreso' : 'Nuevo ingreso'}
       valid={!!n && !!description.trim() && !!date}
       onDelete={existing && (() => remove('incomes', existing.id))}
-      onSubmit={() => upsert('incomes', { id: existing?.id ?? newId(), description: description.trim(), amount: n!, currency, date, fortnight } satisfies Income)}
+      onSubmit={() =>
+        upsert('incomes', {
+          ...existing,
+          id: existing?.id ?? newId(),
+          description: description.trim(),
+          amount: n!,
+          currency: cur,
+          date,
+          fortnight,
+          accountId,
+          createdAt: existing ? existing.createdAt : new Date().toISOString(),
+        } satisfies Income)
+      }
     >
-      <MoneyInput amount={amount} currency={currency} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
+      <MoneyInput amount={amount} currency={cur} locked={!!lockCur} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
       <Field label="Descripción">
         <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+      <Field label="¿A qué cuenta entró?">
+        <AccountPicker cards={cards} value={accountId} onChange={setAccountId} />
       </Field>
       <Field label="Quincena">
         <Segmented
@@ -532,6 +553,8 @@ export function SheetHost() {
       return <QuickAdd key={key} {...sheet} />
     case 'import':
       return <ImportSheet key={key} />
+    case 'balance':
+      return <BalanceSheet key={key} {...sheet} />
     case 'expense':
       return <ExpenseForm key={key} {...sheet} />
     case 'fixed':

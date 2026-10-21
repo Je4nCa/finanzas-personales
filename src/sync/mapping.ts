@@ -36,7 +36,8 @@ export function fromRow<C extends Collection>(collection: C, row: Row): AppData[
     out[toCamel(k)] = v
   }
   for (const k of ['amount', 'total']) if (k in out) out[k] = Number(out[k])
-  if (collection === 'incomes' && out.sourceRef === null) delete out.sourceRef
+  // Columnas opcionales que vuelven como null: se quitan para que queden "ausentes" en la app.
+  for (const k of ['sourceRef', 'accountId', 'createdAt', 'balances', 'balanceAt']) if (out[k] === null) delete out[k]
   if (collection === 'expenses') {
     if (out.paymentMonth === null) delete out.paymentMonth
     if (out.sourceRef === null) delete out.sourceRef

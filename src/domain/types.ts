@@ -27,6 +27,10 @@ export interface Card {
   kind?: CardKind
   /** Ausente = bimoneda. */
   currency?: CardCurrency
+  /** Débito / cuenta: saldo disponible fijado por el usuario en balanceAt (por moneda). */
+  balances?: Partial<Record<Currency, number>> | null
+  /** Momento (ISO) en que se fijó el saldo; lo posterior suma o resta. */
+  balanceAt?: string | null
   lastFour: string
   /** Día del mes en que cierra el estado de cuenta (1–31). Solo crédito. */
   closingDay: number
@@ -58,6 +62,8 @@ export interface Expense {
   paymentMonth?: MonthKey | null
   /** Línea del estado de cuenta de donde salió (evita importarla dos veces). */
   sourceRef?: string | null
+  /** Momento (ISO) en que se registró; ordena contra un ajuste de saldo del mismo día. */
+  createdAt?: string | null
 }
 
 /** Gasto fijo mensual (suscripciones, servicios). */
@@ -107,6 +113,10 @@ export interface Income {
   date: DateKey
   /** 1 = primera quincena, 2 = segunda quincena. */
   fortnight: 1 | 2
+  /** Cuenta o tarjeta de débito donde entró el dinero. */
+  accountId?: string | null
+  /** Momento (ISO) en que se registró. */
+  createdAt?: string | null
   /** Línea del estado de cuenta de donde salió (evita importarla dos veces). */
   sourceRef?: string | null
 }

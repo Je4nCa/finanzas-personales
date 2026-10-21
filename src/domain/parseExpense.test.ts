@@ -81,6 +81,15 @@ describe('parseExpense', () => {
     expect(parseExpense('Netflix 15 dólares con la BAC', { ...ctx, cards }).currency).toBe('USD')
   })
 
+  it('el apodo gana sobre el nombre del banco', () => {
+    const cards = [
+      { id: 'wm', name: 'Wink Mastercard', lastFour: '', closingDay: 28, paymentDay: 22, theme: 0 },
+      { id: 'wa', name: 'Cuenta Wink', nickname: 'Wink', kind: 'account' as const, lastFour: '', closingDay: 1, paymentDay: 1, theme: 1 },
+    ]
+    expect(parseExpense('súper 15 mil con la Wink', { ...ctx, cards }).cardId).toBe('wa')
+    expect(parseExpense('súper 15 mil con la Wink Mastercard', { ...ctx, cards }).cardId).toBe('wm')
+  })
+
   it('miles con coma y últimos 4 dígitos', () => {
     expect(p('Ferretería EPA 32,000 con la 8841')).toMatchObject({ amount: 32000, cardId: 'bcr', category: 'Hogar', description: 'Ferretería EPA' })
   })

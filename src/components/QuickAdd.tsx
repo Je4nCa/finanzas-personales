@@ -1,14 +1,14 @@
 import { Mic, Sparkles, Square } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { dateLabel, monthLabel, todayKey } from '../domain/dates'
-import { fixedCurrency, isCredit } from '../domain/cards'
+import { defaultAccount, fixedCurrency, isCredit } from '../domain/cards'
 import { convert, formatMoney, paymentMonthFor } from '../domain/finance'
 import { parseExpense, suggestedCard } from '../domain/parseExpense'
 import type { Currency, Expense, ExpenseScope, Income } from '../domain/types'
 import { newId, useData } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { CATEGORIES } from './forms'
-import { CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
+import { AccountPicker, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
 
 // Web Speech API: Safari y Chrome la exponen con prefijo.
 type Recognition = {
@@ -39,7 +39,7 @@ const VOICE_ERRORS: Record<string, string> = {
 const EXAMPLES = ['25 mil en el súper con la BAC', 'Uber 4800 ayer', 'Me ingresaron 500 mil de Montevo', 'almuerzo 6500 en efectivo']
 
 type Kind = 'expense' | 'income'
-type Overrides = Partial<{ kind: Kind; description: string; amount: string; currency: Currency; cardId: string | null; category: string; scope: ExpenseScope; date: string; fortnight: 1 | 2 }>
+type Overrides = Partial<{ kind: Kind; description: string; amount: string; currency: Currency; cardId: string | null; accountId: string | null; category: string; scope: ExpenseScope; date: string; fortnight: 1 | 2 }>
 
 export function QuickAdd({ preset }: SheetState) {
   const { cards, expenses, incomes, settings, upsert } = useData()
@@ -71,7 +71,10 @@ export function QuickAdd({ preset }: SheetState) {
   const fortnight: 1 | 2 = over.fortnight ?? (Number(date.slice(8, 10)) <= 15 ? 1 : 2)
   // Tarjeta de una sola moneda: el gasto queda en esa moneda. Si se dijo en la otra, se convierte
   // con el tipo de cambio como aproximación (el monto real es el que diga el estado de cuenta).
-  const lockCur = !isIncome ? fixedCurrency(cards.find((c) => c.id === cardId)) : null
+  // Ingreso: a qué cuenta entró (la mencionada si es de débito/cuenta, si no la habitual).
+  const spokenAccount = parsed.cardId && cards.some((c) => c.id === parsed.cardId && !isCredit(c)) ? parsed.cardId : undefined
+  const accountId = over.accountId !== undefined ? over.accountId : (spokenAccount ?? defaultAccount(cards, incomes))
+  const lockCur = fixedCurrency(cards.find((c) => c.id === (isIncome ? accountId : cardId)))
   const converted = !!lockCur && over.amount === undefined && parsed.amount !== null && currency !== lockCur
   const finalAmountStr = converted ? String(Math.round(convert(parsed.amount!, currency, lockCur!, settings.exchangeRate) * 100) / 100) : amountStr
   const finalCurrency = lockCur ?? currency
@@ -136,7 +139,16 @@ export function QuickAdd({ preset }: SheetState) {
   const save = () => {
     if (!valid) return
     if (isIncome) {
-      const inc: Income = { id: newId(), description: description.trim(), amount: Math.round(amount * 100) / 100, currency: finalCurrency, date, fortnight }
+      const inc: Income = {
+        id: newId(),
+        description: description.trim(),
+        amount: Math.round(amount * 100) / 100,
+        currency: finalCurrency,
+        date,
+        fortnight,
+        accountId,
+        createdAt: new Date().toISOString(),
+      }
       upsert('incomes', inc)
       close()
       showToast(`Ingreso de ${inc.description} guardado`)
@@ -151,6 +163,7 @@ export function QuickAdd({ preset }: SheetState) {
       cardId: cardId ?? null,
       category,
       scope,
+      createdAt: new Date().toISOString(),
     }
     upsert('expenses', exp)
     close()
@@ -225,6 +238,10 @@ export function QuickAdd({ preset }: SheetState) {
               )}
             </div>
             {isIncome ? (
+              <>
+              <Field label="¿A qué cuenta entró?">
+                <AccountPicker cards={cards} value={accountId} onChange={(id) => set({ accountId: id })} />
+              </Field>
               <Field label="Quincena">
                 <Segmented
                   value={String(fortnight) as '1' | '2'}
@@ -235,6 +252,7 @@ export function QuickAdd({ preset }: SheetState) {
                   ]}
                 />
               </Field>
+              </>
             ) : (
               <>
             <Field label="Tarjeta">
@@ -273,7 +291,7 @@ export function QuickAdd({ preset }: SheetState) {
             onClick={() =>
               open(
                 isIncome
-                  ? { kind: 'income', preset: { description, amount: finalAmountStr, currency: finalCurrency, date, fortnight } }
+                  ? { kind: 'income', preset: { description, amount: finalAmountStr, currency: finalCurrency, date, fortnight, accountId } }
                   : { kind: 'expense', preset: { description, amount: finalAmountStr, currency: finalCurrency, cardId: cardId ?? null, category, scope, date } },
               )
             }

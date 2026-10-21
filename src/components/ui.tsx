@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Lock, Wallet, X } from '
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, monthLabel } from '../domain/dates'
 import { formatMoney } from '../domain/finance'
-import { cardLabel } from '../domain/cards'
+import { cardLabel, isCredit } from '../domain/cards'
 import type { Card, Currency, ExpenseScope } from '../domain/types'
 import { useUi } from '../store/store'
 import { useOverlay } from '../store/ui'
@@ -311,4 +311,22 @@ export const SCOPES: { value: ExpenseScope; label: string; short: string }[] = [
 /** Personal / Casa / Pareja. */
 export function ScopePicker({ value, onChange, small }: { value: ExpenseScope; onChange: (v: ExpenseScope) => void; small?: boolean }) {
   return <Segmented small={small} value={value} onChange={onChange} options={SCOPES.map((s) => ({ value: s.value, label: small ? s.short : s.label }))} />
+}
+
+/** Cuenta o tarjeta de débito donde entra un ingreso. */
+export function AccountPicker({ cards, value, onChange }: { cards: Card[]; value: string | null; onChange: (id: string | null) => void }) {
+  const accounts = cards.filter((c) => !isCredit(c))
+  return (
+    <div className="choice-row">
+      {accounts.map((c) => (
+        <button key={c.id} type="button" className={`choice ${value === c.id ? 'on' : ''}`} onClick={() => onChange(c.id)}>
+          <span className="swatch" style={{ background: cardSwatch(c.theme) }} />
+          {cardLabel(c)}
+        </button>
+      ))}
+      <button type="button" className={`choice ${value === null ? 'on' : ''}`} onClick={() => onChange(null)}>
+        {accounts.length ? 'Ninguna' : 'Agregá una cuenta en Tarjetas'}
+      </button>
+    </div>
+  )
 }

@@ -182,6 +182,9 @@ function Review({ statement, fileName }: { statement: Statement; fileName: strin
             date: r.date,
             fortnight: Number(r.date.slice(8, 10)) <= 15 ? 1 : 2,
             sourceRef: r.ref,
+            // Si el estado es de una cuenta o débito, el ingreso entró ahí.
+            accountId: cardIds[gi] && !creditTarget[gi] ? cardIds[gi] : null,
+            createdAt: new Date().toISOString(),
           } satisfies Income)
           nInc++
         } else {
@@ -197,6 +200,7 @@ function Review({ statement, fileName }: { statement: Statement; fileName: strin
             // El mes de pago del estado solo aplica a tarjetas de crédito.
             paymentMonth: creditTarget[gi] ? (g.paymentMonth ?? null) : null,
             sourceRef: r.ref,
+            createdAt: new Date().toISOString(),
           } satisfies Expense)
           nExp++
         }

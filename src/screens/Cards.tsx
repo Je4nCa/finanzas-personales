@@ -1,8 +1,8 @@
-import { amountsFor, cardCurrency, isCredit, KIND_LABEL } from '../domain/cards'
+import { accountBalance, amountsFor, cardCurrency, cardLabel, isCredit, KIND_LABEL } from '../domain/cards'
 import { addMonths, currentMonth, dayInMonthLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
 import { cardSummaries, chargesForMonth, paymentMonthFor, sumByCurrency } from '../domain/finance'
 import type { AppData, Card } from '../domain/types'
-import { CreditCard, Empty } from '../components/ui'
+import { Amounts, CreditCard, Empty } from '../components/ui'
 import { useAppData } from '../store/store'
 import { useOverlay } from '../store/ui'
 import { AddButton } from './Movements'
@@ -65,16 +65,29 @@ function CreditCardItem({ card: c, data, onOpen }: { card: Card; data: AppData; 
 }
 
 function DebitItem({ card: c, data, onOpen }: { card: Card; data: AppData; onOpen: () => void }) {
+  const open = useOverlay((s) => s.open)
   const month = currentMonth()
+  const preferred = cardCurrency(c)
+  const available = accountBalance(data, c)
   const spent = sumByCurrency(chargesForMonth(data, month).filter((x) => x.cardId === c.id))
   const kind = KIND_LABEL[c.kind ?? 'credit']
+  const negative = available.CRC < 0 || available.USD < 0
   return (
-    <button className="card" style={{ textAlign: 'left', padding: 12 }} onClick={onOpen}>
-      <CreditCard card={c} label={`${kind} · gastado en ${monthLabel(month).split(' ')[0]}`} amounts={amountsFor(spent, cardCurrency(c))} />
-      <div className="row" style={{ marginTop: 10, fontSize: 13 }}>
-        <span className="chip">{kind}</span>
-        {c.nickname && <span className="card-label">En el banco: {c.name}</span>}
+    <div className="card" style={{ padding: 12 }}>
+      <button style={{ width: '100%', textAlign: 'left' }} onClick={onOpen} aria-label={`Editar ${cardLabel(c)}`}>
+        <CreditCard card={c} label={`${kind} · disponible`} amounts={amountsFor(available, preferred)} />
+      </button>
+      <div className="row" style={{ marginTop: 10, fontSize: 13, flexWrap: 'wrap' }}>
+        <span className="card-label">
+          Gastado en {monthLabel(month).split(' ')[0]}: <Amounts items={amountsFor(spent, preferred)} compact />
+        </span>
+        <span className="spacer" />
+        <button className="pill-btn glass" onClick={() => open({ kind: 'balance', id: c.id })}>
+          Ajustar disponible
+        </button>
       </div>
-    </button>
+      {negative && <div className="chip red" style={{ marginTop: 8, whiteSpace: 'normal' }}>El disponible quedó en negativo: revisá si falta registrar un ingreso o ajustalo.</div>}
+      {c.nickname && <div className="card-label nickname-note">En el banco: {c.name}</div>}
+    </div>
   )
 }

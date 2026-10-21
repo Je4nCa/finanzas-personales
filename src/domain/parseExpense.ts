@@ -221,11 +221,20 @@ function findCard(tokens: Token[], cards: Card[]): string | null | undefined {
     if (card.bank === 'bac') words.push('bac', 'credomatic')
     if (card.network === 'visa') words.push('visa')
     if (card.network === 'mastercard') words.push('mastercard')
+    // El apodo lo eligió el usuario: pesa más que el nombre del banco ("la Wink" = la cuenta apodada Wink).
+    const nick = norm(card.nickname ?? '').split(/\s+/).filter((w) => w.length >= 3)
     const idx: number[] = []
+    let score = 0
     tokens.forEach((t, i) => {
-      if (words.includes(t.n) || (card.lastFour && t.n === card.lastFour) || (t.n === 'master' && words.includes('mastercard'))) idx.push(i)
+      if (nick.includes(t.n)) {
+        idx.push(i)
+        score += 2
+      } else if (words.includes(t.n) || (card.lastFour && t.n === card.lastFour) || (t.n === 'master' && words.includes('mastercard'))) {
+        idx.push(i)
+        score += 1
+      }
     })
-    if (idx.length && (!best || idx.length > best.score)) best = { id: card.id, score: idx.length, idx }
+    if (idx.length && (!best || score > best.score)) best = { id: card.id, score, idx }
   }
   if (!best) return undefined
   for (const i of best.idx) {
@@ -340,7 +349,8 @@ export function parseExpense(rawText: string, ctx: ParseContext): ParsedExpense 
       description: past?.description ?? (description || 'Ingreso'),
       amount: amount ? Math.round(amount.value * 100) / 100 : null,
       currency: symbolCurrency ?? amount?.currency ?? past?.currency ?? ctx.baseCurrency,
-      cardId: undefined,
+      // Para ingresos, la tarjeta/cuenta mencionada es a dónde entró el dinero.
+      cardId,
       category: 'Ingreso',
       scope: 'personal',
       date,
