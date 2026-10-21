@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, CheckCircle2, FileText, Upload } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
+import { cardLabel, isCredit, KIND_LABEL } from '../domain/cards'
 import { dateLabel, monthLabel } from '../domain/dates'
 import { formatMoney } from '../domain/finance'
 import { suggestFor } from '../domain/parseExpense'
@@ -163,6 +164,7 @@ function Review({ statement, fileName }: { statement: Statement; fileName: strin
       upsert('cards', card)
       return card.id
     })
+    const creditTarget = targets.map((t) => t.type === 'new' || (t.type === 'card' && isCredit(cards.find((c) => c.id === t.id) ?? {})))
     let nExp = 0
     let nInc = 0
     statement.groups.forEach((g, gi) => {
@@ -192,7 +194,8 @@ function Review({ statement, fileName }: { statement: Statement; fileName: strin
             cardId: cardIds[gi],
             category: st.category,
             scope: st.scope,
-            paymentMonth: cardIds[gi] ? (g.paymentMonth ?? null) : null,
+            // El mes de pago del estado solo aplica a tarjetas de crédito.
+            paymentMonth: creditTarget[gi] ? (g.paymentMonth ?? null) : null,
             sourceRef: r.ref,
           } satisfies Expense)
           nExp++
@@ -338,11 +341,11 @@ function GroupReview({
         >
           {cards.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name} {c.lastFour ? `****${c.lastFour}` : ''}
+              {cardLabel(c)} {c.lastFour ? `****${c.lastFour}` : ''} {isCredit(c) ? '' : `(${KIND_LABEL[c.kind ?? 'credit'].toLowerCase()})`}
             </option>
           ))}
           {!generic && <option value="new">Crear {preview?.name ?? 'tarjeta nueva'} {preview?.lastFour ? `****${preview.lastFour}` : ''}</option>}
-          <option value="cash">Efectivo / débito (sin tarjeta)</option>
+          <option value="cash">Efectivo (sin tarjeta)</option>
         </select>
         {preview && (
           <span className="card-label" style={{ fontSize: 12 }}>

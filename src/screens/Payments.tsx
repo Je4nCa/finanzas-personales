@@ -1,6 +1,7 @@
 import { Check, ChevronDown, CreditCard as CardIcon } from 'lucide-react'
 import { useState } from 'react'
 import { dateLabel, dayInMonthLabel, monthLabel, todayKey } from '../domain/dates'
+import { cardLabel } from '../domain/cards'
 import { sumByCurrency, toBase, type CardMonthSummary, type Charge } from '../domain/finance'
 import type { Currency, ExpenseScope, Settings } from '../domain/types'
 import { ExpenseIcon, NetworkLogo, networkOf } from '../components/logos'
@@ -87,7 +88,7 @@ function CardPaymentCard({ s }: { s: CardMonthSummary }) {
       const inst = c.kind === 'cuota' ? installments.find((i) => i.id === c.sourceId) : undefined
       if (inst && !inst.paidMonths.includes(month)) toggleInstallmentPaid(inst.id, month)
     }
-    showToast(`${s.card.name} marcada como pagada`)
+    showToast(`${cardLabel(s.card)} marcada como pagada`)
   }
 
   return (
@@ -97,7 +98,7 @@ function CardPaymentCard({ s }: { s: CardMonthSummary }) {
           <NetworkLogo network={networkOf(s.card)} size={13} />
         </span>
         <div className="spacer">
-          <div className="title">{s.card.name}</div>
+          <div className="title">{cardLabel(s.card)}</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
             Vence {dayInMonthLabel(month, s.card.paymentDay)} · cierra día {s.card.closingDay}
           </div>

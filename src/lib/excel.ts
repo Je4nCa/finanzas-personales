@@ -1,3 +1,4 @@
+import { cardLabel } from '../domain/cards'
 import { monthLabel, monthOf } from '../domain/dates'
 import { cardSummaries, chargesForMonth, installmentIndex, monthBalance } from '../domain/finance'
 import type { AppData, MonthKey } from '../domain/types'
@@ -14,7 +15,10 @@ export async function exportMonthToExcel(data: AppData, month: MonthKey) {
   const charges = chargesForMonth(data, month)
   const bal = monthBalance(data, month, charges)
   const summaries = cardSummaries(data, month, charges)
-  const cardName = (id: string | null) => data.cards.find((c) => c.id === id)?.name ?? 'Efectivo / débito'
+  const cardName = (id: string | null) => {
+    const c = data.cards.find((x) => x.id === id)
+    return c ? cardLabel(c) : 'Efectivo'
+  }
   const money = (c: string) => (c === 'USD' ? '"$"#,##0.00' : '"₡"#,##0')
 
   const style = (ws: import('exceljs').Worksheet) => {
@@ -58,7 +62,7 @@ export async function exportMonthToExcel(data: AppData, month: MonthKey) {
     { header: `Pendiente total (${base})`, width: 22 },
   ]
   for (const sm of summaries) {
-    const row = p.addRow([sm.card.name, sm.billed.USD, sm.billed.CRC, sm.paid.USD, sm.paid.CRC, sm.owed.USD, sm.owed.CRC, sm.owedBase])
+    const row = p.addRow([cardLabel(sm.card), sm.billed.USD, sm.billed.CRC, sm.paid.USD, sm.paid.CRC, sm.owed.USD, sm.owed.CRC, sm.owedBase])
     ;[2, 4, 6].forEach((i) => (row.getCell(i).numFmt = money('USD')))
     ;[3, 5, 7].forEach((i) => (row.getCell(i).numFmt = money('CRC')))
     row.getCell(8).numFmt = money(base)

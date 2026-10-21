@@ -1,10 +1,11 @@
-import { Download, FileSpreadsheet, Upload } from 'lucide-react'
+import { Download, FileSpreadsheet, RefreshCw, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { monthLabel, todayKey } from '../domain/dates'
 import type { AppData } from '../domain/types'
 import { download, exportMonthToExcel } from '../lib/excel'
 import { selectData, useData, useUi } from '../store/store'
 import { useOverlay } from '../store/ui'
+import { useAppUpdate } from '../pwa'
 import { useSyncStatus } from '../sync/status'
 import { AccountSection } from './AccountSection'
 import { Field, Segmented, Sheet } from './ui'
@@ -19,6 +20,7 @@ export function SettingsSheet() {
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const email = useSyncStatus((s) => s.email)
+  const updating = useAppUpdate((s) => s.checking)
 
   const exportExcel = async () => {
     setBusy(true)
@@ -135,6 +137,20 @@ export function SettingsSheet() {
             ? 'El respaldo en archivo es opcional: tus datos ya están en la nube.'
             : 'Sin cuenta, tus datos se guardan solo en este dispositivo. Descargá un respaldo de vez en cuando para no perderlos.'}
         </p>
+
+        <div className="version-row">
+          <span>Versión {__APP_VERSION__}</span>
+          <button
+            className="pill-btn glass"
+            disabled={updating}
+            onClick={async () => {
+              const found = await useAppUpdate.getState().check()
+              showToast(found ? 'Hay una versión nueva: tocá Actualizar' : 'Ya tenés la última versión')
+            }}
+          >
+            <RefreshCw /> {updating ? 'Buscando…' : 'Buscar actualización'}
+          </button>
+        </div>
       </div>
     </Sheet>
   )

@@ -777,3 +777,23 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 }
 .scope-split .together-pill { margin-top: 0; }
 .together-pill strong { font-size: 15px; }
+
+/* ---------- Aviso de versión nueva ---------- */
+
+.update-banner {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 300;
+  bottom: calc(var(--safe-bottom) + 90px); width: min(440px, calc(100% - 24px));
+  display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; border-radius: 999px;
+  font-size: 14px; font-weight: 550; color: var(--text);
+  animation: banner-in 0.5s var(--bounce) both;
+}
+.update-banner > svg { color: var(--purple); flex: none; }
+.update-banner .pill-btn { height: 38px; }
+.update-banner .icon-btn { width: 36px; height: 36px; }
+.update-banner .icon-btn svg { width: 16px; height: 16px; }
+@keyframes banner-in { from { opacity: 0; transform: translate(-50%, 20px) scale(0.95); } }
+@media (min-width: 900px) { .update-banner { bottom: 24px; } }
+
+.version-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+
+.nickname-note { font-size: 12px; margin-top: 8px; }

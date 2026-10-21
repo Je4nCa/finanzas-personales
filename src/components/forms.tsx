@@ -1,8 +1,9 @@
 import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, dateLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
+import { cardLabel, isCredit, KIND_LABEL } from '../domain/cards'
 import { formatMoney, paymentMonthFor } from '../domain/finance'
-import type { Card, CardBank, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment } from '../domain/types'
+import type { Card, CardBank, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment } from '../domain/types'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { cardSwatch, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
@@ -74,7 +75,7 @@ function FormShell({
 }
 
 function Hint({ children }: { children: ReactNode }) {
-  return <div className="chip purple" style={{ alignSelf: 'flex-start', fontSize: 12.5, padding: '6px 10px' }}>{children}</div>
+  return <div className="chip purple" style={{ alignSelf: 'flex-start', fontSize: 12.5, padding: '6px 10px', whiteSpace: 'normal', lineHeight: 1.4 }}>{children}</div>
 }
 
 /* ---------------- Gasto variable ---------------- */
@@ -128,7 +129,7 @@ function ExpenseForm({ id, preset }: SheetState) {
         <Hint>
           {fixedMonth
             ? `Según el estado de cuenta, se cobra en ${monthLabel(fixedMonth)}`
-            : card
+            : card && isCredit(card)
               ? `Se cobra en el pago de ${monthLabel(paymentMonthFor(card, date))}`
               : `Cuenta en ${monthLabel(date.slice(0, 7))}`}
         </Hint>
@@ -341,7 +342,7 @@ function PaymentForm({ id, preset }: SheetState) {
   const { payments, cards, upsert, remove, settings } = useData()
   const uiMonth = useUi((s) => s.month)
   const existing = payments.find((p) => p.id === id)
-  const [cardId, setCardId] = useState<string | null>(existing?.cardId ?? (preset?.cardId as string) ?? cards[0]?.id ?? null)
+  const [cardId, setCardId] = useState<string | null>(existing?.cardId ?? (preset?.cardId as string) ?? cards.find(isCredit)?.id ?? null)
   const [amount, setAmount] = useState(existing ? String(existing.amount) : preset?.amount ? String(preset.amount) : '')
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? (preset?.currency as Currency) ?? settings.baseCurrency)
   const [date, setDate] = useState(existing?.date ?? todayKey())
@@ -359,10 +360,10 @@ function PaymentForm({ id, preset }: SheetState) {
       <MoneyInput amount={amount} currency={currency} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing && !preset?.amount} />
       <Field label="Tarjeta">
         <div className="choice-row">
-          {cards.map((c) => (
+          {cards.filter(isCredit).map((c) => (
             <button key={c.id} type="button" className={`choice ${cardId === c.id ? 'on' : ''}`} onClick={() => setCardId(c.id)}>
               <span className="swatch" style={{ background: cardSwatch(c.theme) }} />
-              {c.name}
+              {cardLabel(c)}
             </button>
           ))}
         </div>
@@ -380,6 +381,9 @@ function CardForm({ id }: SheetState) {
   const { cards, upsert, remove } = useData()
   const existing = cards.find((c) => c.id === id)
   const [name, setName] = useState(existing?.name ?? '')
+  const [nickname, setNickname] = useState(existing?.nickname ?? '')
+  const [kind, setKind] = useState<CardKind>(existing?.kind ?? 'credit')
+  const credit = kind === 'credit'
   const [lastFour, setLastFour] = useState(existing?.lastFour ?? '')
   const [closingDay, setClosingDay] = useState(String(existing?.closingDay ?? ''))
   const [paymentDay, setPaymentDay] = useState(String(existing?.paymentDay ?? ''))
@@ -392,24 +396,53 @@ function CardForm({ id }: SheetState) {
   const cd = parseInt(closingDay, 10)
   const pd = parseInt(paymentDay, 10)
   const validDay = (d: number) => Number.isInteger(d) && d >= 1 && d <= 31
-  const valid = !!name.trim() && validDay(cd) && validDay(pd)
+  const valid = !!name.trim() && (!credit || (validDay(cd) && validDay(pd)))
   const today = todayKey()
 
   return (
     <FormShell
-      title={existing ? 'Editar tarjeta' : 'Nueva tarjeta'}
+      title={existing ? `Editar ${credit ? 'tarjeta' : KIND_LABEL[kind].toLowerCase()}` : 'Nueva tarjeta o cuenta'}
       valid={valid}
       onDelete={existing && (() => remove('cards', existing.id))}
       onSubmit={() =>
-        upsert('cards', { id: existing?.id ?? newId(), name: name.trim(), lastFour, closingDay: cd, paymentDay: pd, theme, network: shownNetwork, bank: shownBank } satisfies Card)
+        upsert('cards', {
+          id: existing?.id ?? newId(),
+          name: name.trim(),
+          nickname: nickname.trim() || null,
+          kind,
+          lastFour,
+          // Débito y cuentas no tienen ciclo; se guardan valores neutros.
+          closingDay: credit ? cd : 1,
+          paymentDay: credit ? pd : 1,
+          theme,
+          network: shownNetwork,
+          bank: shownBank,
+        } satisfies Card)
       }
     >
-      <Field label="Nombre">
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. BAC Visa, BCR Mastercard" autoFocus={!existing} />
+      <Field label="Tipo">
+        <Segmented
+          value={kind}
+          onChange={setKind}
+          options={(['credit', 'debit', 'account'] as CardKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+        />
+      </Field>
+      <Field label={credit ? 'Nombre (como en el estado de cuenta)' : 'Nombre (como lo llama el banco)'}>
+        <input
+          className="input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={credit ? 'Ej. BAC Visa, BCR Mastercard' : 'Ej. Wink débito, Cuenta de ahorros BAC'}
+          autoFocus={!existing}
+        />
+      </Field>
+      <Field label="Apodo (opcional, es el que se muestra)">
+        <input className="input" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Ej. La morada, Visa del súper" />
       </Field>
       <Field label="Últimos 4 dígitos">
         <input className="input num" inputMode="numeric" maxLength={4} value={lastFour} onChange={(e) => setLastFour(e.target.value.replace(/\D/g, ''))} placeholder="1327" />
       </Field>
+      {credit && (
       <div className="grid-2">
         <Field label="Día de cierre">
           <input className="input num" inputMode="numeric" value={closingDay} onChange={(e) => setClosingDay(e.target.value.replace(/\D/g, ''))} placeholder="20" />
@@ -418,7 +451,9 @@ function CardForm({ id }: SheetState) {
           <input className="input num" inputMode="numeric" value={paymentDay} onChange={(e) => setPaymentDay(e.target.value.replace(/\D/g, ''))} placeholder="5" />
         </Field>
       </div>
-      {validDay(cd) && validDay(pd) && (
+      )}
+      {!credit && <Hint>Los gastos con {kind === 'debit' ? 'esta tarjeta de débito' : 'esta cuenta'} cuentan en el mes de la compra.</Hint>}
+      {credit && validDay(cd) && validDay(pd) && (
         <Hint>
           Una compra de hoy ({dateLabel(today)}) se paga en {monthLabel(paymentMonthFor({ closingDay: cd, paymentDay: pd }, today))}
         </Hint>

@@ -70,6 +70,11 @@ describe('parseExpense', () => {
     expect(parseExpense('Spotify 5.99 dólares con la Wink', { ...ctx, cards })).toMatchObject({ description: 'Spotify', cardId: 'wk', category: 'Ocio', currency: 'USD' })
   })
 
+  it('reconoce la tarjeta por su apodo', () => {
+    const cards = [...ctx.cards, { id: 'nk', name: 'BAC Credomatic Visa', nickname: 'Morada', lastFour: '', closingDay: 1, paymentDay: 15, theme: 0 }]
+    expect(parseExpense('gasolina 20 mil con la morada', { ...ctx, cards })).toMatchObject({ cardId: 'nk', description: 'Gasolina' })
+  })
+
   it('miles con coma y últimos 4 dígitos', () => {
     expect(p('Ferretería EPA 32,000 con la 8841')).toMatchObject({ amount: 32000, cardId: 'bcr', category: 'Hogar', description: 'Ferretería EPA' })
   })

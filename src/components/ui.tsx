@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Wallet, X } from 'lucide
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, monthLabel } from '../domain/dates'
 import { formatMoney } from '../domain/finance'
+import { cardLabel } from '../domain/cards'
 import type { Card, Currency, ExpenseScope } from '../domain/types'
 import { useUi } from '../store/store'
 import { useOverlay } from '../store/ui'
@@ -83,7 +84,7 @@ export function CreditCard({ card, label, amount, currency }: { card: Card; labe
       <div className="cc-top">
         <span className="cc-name">
           <BankBadge bank={bankOf(card)} />
-          {card.name}
+          {cardLabel(card)}
         </span>
         <NetworkLogo network={networkOf(card)} />
       </div>
@@ -235,11 +236,11 @@ export function CardPicker({ cards, value, onChange }: { cards: Card[]; value: s
       {cards.map((c) => (
         <button key={c.id} type="button" className={`choice ${value === c.id ? 'on' : ''}`} onClick={() => onChange(c.id)}>
           <span className="swatch" style={{ background: cardSwatch(c.theme) }} />
-          {c.name}
+          {cardLabel(c)}
         </button>
       ))}
       <button type="button" className={`choice ${value === null ? 'on' : ''}`} onClick={() => onChange(null)}>
-        Efectivo / débito
+        Efectivo
       </button>
     </div>
   )

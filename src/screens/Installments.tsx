@@ -1,4 +1,5 @@
 import { CalendarClock } from 'lucide-react'
+import { cardLabel } from '../domain/cards'
 import { addMonths, monthLabel, monthShort, parseMonth } from '../domain/dates'
 import { formatMoney, installmentAmount, installmentIndex, sumByCurrency, toBase } from '../domain/finance'
 import type { Installment } from '../domain/types'
@@ -75,7 +76,7 @@ function InstallmentCard({ inst }: { inst: Installment }) {
         <div className="spacer">
           <div className="title">{inst.description}</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-            {card?.name ?? 'Efectivo'} · {formatMoney(inst.total, inst.currency)} en {inst.months} meses
+            {card ? cardLabel(card) : 'Efectivo'} · {formatMoney(inst.total, inst.currency)} en {inst.months} meses
           </div>
         </div>
         <div className="li-amount" style={{ textAlign: 'right' }}>

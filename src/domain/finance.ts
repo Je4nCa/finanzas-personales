@@ -1,3 +1,4 @@
+import { isCredit } from './cards'
 import { addMonths, clampDay, monthDiff, monthOf, parseDate } from './dates'
 import type { AppData, Card, Currency, DateKey, ExpenseScope, Installment, MonthKey, Settings } from './types'
 
@@ -6,7 +7,9 @@ import type { AppData, Card, Currency, DateKey, ExpenseScope, Installment, Month
  * La compra entra al estado que cierra en el próximo día de cierre (inclusive),
  * y ese estado se paga en el siguiente día de pago posterior al cierre.
  */
-export function paymentMonthFor(card: Pick<Card, 'closingDay' | 'paymentDay'>, date: DateKey): MonthKey {
+export function paymentMonthFor(card: Pick<Card, 'closingDay' | 'paymentDay' | 'kind'>, date: DateKey): MonthKey {
+  // Débito y cuentas no tienen ciclo: el gasto sale en el mes de la compra.
+  if (!isCredit(card)) return monthOf(date)
   const { year, month, day } = parseDate(date)
   const closingThisMonth = clampDay(year, month, card.closingDay)
   const closingMonth = day <= closingThisMonth ? monthOf(date) : addMonths(monthOf(date), 1)
@@ -134,7 +137,8 @@ export interface CardMonthSummary {
  * y cada abono descuenta el saldo de su moneda.
  */
 export function cardSummaries(data: AppData, month: MonthKey, charges = chargesForMonth(data, month)): CardMonthSummary[] {
-  return data.cards.map((card) => {
+  // Solo las tarjetas de crédito generan un pago a fin de mes.
+  return data.cards.filter(isCredit).map((card) => {
     const cc = charges.filter((c) => c.cardId === card.id)
     const billed = sumByCurrency(cc)
     const paid = sumByCurrency(data.payments.filter((p) => p.cardId === card.id && p.month === month))
@@ -167,6 +171,7 @@ export interface MonthBalance {
 
 export function monthBalance(data: AppData, month: MonthKey, charges = chargesForMonth(data, month)): MonthBalance {
   const s = data.settings
+  const creditIds = new Set(data.cards.filter(isCredit).map((c) => c.id))
   const income = toBase(sumByCurrency(data.incomes.filter((i) => monthOf(i.date) === month)), s)
   const expenses = toBase(sumByCurrency(charges), s)
   const kindTotal = (k: ChargeKind) => toBase(sumByCurrency(charges.filter((c) => c.kind === k)), s)
@@ -178,7 +183,7 @@ export function monthBalance(data: AppData, month: MonthKey, charges = chargesFo
     budget,
     usage: budget > 0 ? expenses / budget : expenses > 0 ? Infinity : 0,
     byKind: { variable: kindTotal('variable'), fijo: kindTotal('fijo'), cuota: kindTotal('cuota') },
-    cash: toBase(sumByCurrency(charges.filter((c) => c.cardId === null)), s),
+    cash: toBase(sumByCurrency(charges.filter((c) => c.cardId === null || !creditIds.has(c.cardId))), s),
   }
 }
 

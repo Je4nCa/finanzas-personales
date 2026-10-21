@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // GitHub Pages sirve la app en /finanzas-personales/.
 const base = process.env.GITHUB_ACTIONS ? '/finanzas-personales/' : '/'
+// Versión visible en Ajustes: el commit publicado (o "dev" en local).
+const appVersion = JSON.stringify((process.env.GITHUB_SHA ?? process.env.APP_VERSION ?? 'dev').slice(0, 7))
 
 export default defineConfig(({ mode }) => {
   // Vista previa como artifact: rutas relativas, sin service worker y con datos de ejemplo.
@@ -18,7 +20,7 @@ export default defineConfig(({ mode }) => {
           exceljs: fileURLToPath(new URL('./src/exceljs-stub.ts', import.meta.url)),
         },
       },
-      define: { 'import.meta.env.VITE_DEMO': JSON.stringify('1') },
+      define: { 'import.meta.env.VITE_DEMO': JSON.stringify('1'), __APP_VERSION__: appVersion },
       build: {
         outDir: 'dist-artifact',
         // Nombres estables: cada republicación del artifact reemplaza los mismos archivos.
@@ -28,11 +30,13 @@ export default defineConfig(({ mode }) => {
   }
   return {
   base,
+  define: { __APP_VERSION__: appVersion },
   build: { chunkSizeWarningLimit: 1000 },
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // La versión nueva espera hasta que el usuario toca "Actualizar" (ver src/pwa.ts).
+      registerType: 'prompt',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Finanzas Personales',

@@ -5,3 +5,6 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY: string
   readonly VITE_DEMO?: string
 }
+
+/** Commit publicado (7 caracteres) o "dev". */
+declare const __APP_VERSION__: string

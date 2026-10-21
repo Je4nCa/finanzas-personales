@@ -57,6 +57,17 @@ describe('resumen del mes', () => {
     expect(chargesForMonth(d, '2026-09').map((c) => c.sourceId)).not.toContain('e1')
   })
 
+  it('débito y cuentas: el gasto cuenta en el mes de la compra y no aparece en Pagos', () => {
+    const d: AppData = {
+      ...data,
+      cards: [...data.cards, { id: 'd1', name: 'Wink débito', nickname: 'Wink', kind: 'debit', lastFour: '', closingDay: 1, paymentDay: 1, theme: 0 }],
+      expenses: [{ id: 'x', description: 'Café', amount: 3000, currency: 'CRC', date: '2026-10-25', cardId: 'd1', category: 'Comida' }],
+    }
+    expect(chargesForMonth(d, '2026-10').map((c) => c.sourceId)).toContain('x')
+    expect(cardSummaries(d, '2026-10').map((s) => s.card.id)).toEqual(['c1'])
+    expect(monthBalance(d, '2026-10').cash).toBe(3000)
+  })
+
   it('agrupa por mes de pago, no por fecha de compra', () => {
     const ids = chargesForMonth(data, '2026-11').map((c) => c.sourceId).sort()
     expect(ids).toEqual(['e1', 'e2', 'f1', 'i1'])

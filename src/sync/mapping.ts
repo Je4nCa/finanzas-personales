@@ -42,6 +42,7 @@ export function fromRow<C extends Collection>(collection: C, row: Row): AppData[
     if (out.sourceRef === null) delete out.sourceRef
   }
   if (collection === 'cards') {
+    if (out.nickname === null) delete out.nickname
     if (out.network === null) delete out.network
     if (out.bank === null) delete out.bank
   }

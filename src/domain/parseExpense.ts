@@ -214,7 +214,8 @@ function findCard(tokens: Token[], cards: Card[]): string | null | undefined {
   }
   let best: { id: string; score: number; idx: number[] } | null = null
   for (const card of cards) {
-    const words = norm(card.name).split(/\s+/).filter((w) => w.length >= 3)
+    // Por nombre del banco y por apodo ("con la del súper").
+    const words = norm(`${card.name} ${card.nickname ?? ''}`).split(/\s+/).filter((w) => w.length >= 3)
     // También por banco y red elegidos en la tarjeta, aunque no estén en el nombre.
     if (card.bank === 'wink') words.push('wink', 'coopenae')
     if (card.bank === 'bac') words.push('bac', 'credomatic')

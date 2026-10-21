@@ -2,6 +2,7 @@ import { FileUp, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { dateLabel, monthLabel, monthOf } from '../domain/dates'
 import { sumByCurrency, toBase } from '../domain/finance'
+import { cardLabel } from '../domain/cards'
 import type { Card, ExpenseScope } from '../domain/types'
 import { ExpenseIcon } from '../components/logos'
 import { cardSwatch, Empty, Money, MonthNav, SCOPES, Segmented } from '../components/ui'
@@ -35,7 +36,7 @@ function CardTag({ card }: { card?: Card }) {
   return (
     <span className="row" style={{ gap: 5 }}>
       <span style={{ width: 8, height: 8, borderRadius: 3, background: card ? cardSwatch(card.theme) : 'var(--faint)' }} />
-      {card?.name ?? 'Efectivo'}
+      {card ? cardLabel(card) : 'Efectivo'}
     </span>
   )
 }
@@ -69,9 +70,9 @@ function Expenses() {
         ))}
       </div>
       <div className="choice-row" style={{ marginBottom: 12 }}>
-        {[{ id: 'all', name: 'Todas' }, ...data.cards, { id: 'cash', name: 'Efectivo' }].map((c) => (
+        {[{ id: 'all', label: 'Todas' }, ...data.cards.map((c) => ({ id: c.id, label: cardLabel(c) })), { id: 'cash', label: 'Efectivo' }].map((c) => (
           <button key={c.id} className={`choice ${filter === c.id ? 'on' : ''}`} onClick={() => setFilter(c.id)}>
-            {c.name}
+            {c.label}
           </button>
         ))}
       </div>

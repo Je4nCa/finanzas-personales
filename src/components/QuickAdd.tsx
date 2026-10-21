@@ -1,6 +1,7 @@
 import { Mic, Sparkles, Square } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { dateLabel, monthLabel, todayKey } from '../domain/dates'
+import { isCredit } from '../domain/cards'
 import { paymentMonthFor } from '../domain/finance'
 import { parseExpense, suggestedCard } from '../domain/parseExpense'
 import type { Currency, Expense, ExpenseScope, Income } from '../domain/types'
@@ -241,7 +242,9 @@ export function QuickAdd({ preset }: SheetState) {
               {isIncome ? (
                 <span className="chip green">Suma a {monthLabel(date.slice(0, 7))}</span>
               ) : (
-                <span className="chip purple">{card ? `Se cobra en ${monthLabel(paymentMonthFor(card, date))}` : 'Efectivo / débito'}</span>
+                <span className="chip purple">
+                  {card && isCredit(card) ? `Se cobra en ${monthLabel(paymentMonthFor(card, date))}` : `Cuenta en ${monthLabel(date.slice(0, 7))}`}
+                </span>
               )}
             </div>
           </div>

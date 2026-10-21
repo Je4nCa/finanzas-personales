@@ -11,13 +11,21 @@ export type Money = { amount: number; currency: Currency }
 export type CardNetwork = 'visa' | 'mastercard' | 'amex' | null
 export type CardBank = 'bac' | 'wink' | null
 
+/** Crédito: tiene cierre y fecha de pago. Débito y cuenta: el gasto cuenta en el mes de la compra. */
+export type CardKind = 'credit' | 'debit' | 'account'
+
 export interface Card {
   id: string
+  /** Nombre como lo llama el banco (p. ej. el del estado de cuenta). */
   name: string
+  /** Apodo para mostrar en la app; ausente = se muestra el nombre. */
+  nickname?: string | null
+  /** Ausente = crédito. */
+  kind?: CardKind
   lastFour: string
-  /** Día del mes en que cierra el estado de cuenta (1–31). */
+  /** Día del mes en que cierra el estado de cuenta (1–31). Solo crédito. */
   closingDay: number
-  /** Día del mes en que vence el pago (1–31). */
+  /** Día del mes en que vence el pago (1–31). Solo crédito. */
   paymentDay: number
   /** Índice del degradado visual de la tarjeta. */
   theme: number
