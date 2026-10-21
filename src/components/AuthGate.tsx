@@ -2,11 +2,10 @@ import { Fingerprint, LockKeyhole, ScanFace } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { biometricAvailable, disableLock, getLock, lockUsesServerPasskey, saveServerLock, unlockWithBiometric } from '../lib/biometric'
+import { idleTooLong, markActive, readLastActive } from '../lib/idle'
 import { loadEngine, syncConfigured, useSyncStatus } from '../sync/status'
 import { Field } from './ui'
 
-/** Tiempo fuera de la app tras el cual vuelve a pedir Face ID / Touch ID. */
-const RELOCK_AFTER_MS = 60_000
 const SKIP_KEY = 'finanzas-lock-skip'
 
 interface Gate {
@@ -17,11 +16,17 @@ interface Gate {
 }
 
 export const useGate = create<Gate>()(() => ({
-  locked: getLock() !== null,
+  // Recargar o actualizar la app no vuelve a pedir Face ID si se usó hace menos de una hora.
+  locked: getLock() !== null && idleTooLong(readLastActive()),
   covered: false,
   // La versión anterior guardaba una passkey solo local: se ofrece actualizarla.
   setupDone: lockUsesServerPasskey() || readSkip(),
 }))
+
+// Cada desbloqueo (Face ID, contraseña, activar el candado) cuenta como uso.
+useGate.subscribe((s) => {
+  if (!s.locked && !s.covered) markActive()
+})
 
 function readSkip() {
   try {
@@ -34,7 +39,7 @@ function readSkip() {
 const isMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints === 0
 const BIO = isMac ? 'Touch ID' : 'Face ID'
 
-/** Sin sesión no se muestra nada de la app. Con candado activo, pide Face ID / Touch ID al abrir y al volver. */
+/** Sin sesión no se muestra nada de la app. Con candado activo, pide Face ID / Touch ID tras una hora sin usarla. */
 export function AuthGate({ children }: { children: ReactNode }) {
   const { ready, email } = useSyncStatus()
   const { locked, covered, setupDone } = useGate()
@@ -46,18 +51,27 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    let hiddenAt = 0
+    // Solo cuenta como uso el tiempo con la app desbloqueada y a la vista.
+    const touch = () => {
+      if (!useGate.getState().locked && document.visibilityState === 'visible') markActive()
+    }
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        hiddenAt = Date.now()
+        if (!useGate.getState().locked) markActive()
         if (getLock()) useGate.setState({ covered: true })
       } else {
-        const away = Date.now() - hiddenAt
-        useGate.setState((g) => ({ covered: false, locked: g.locked || (getLock() !== null && hiddenAt > 0 && away > RELOCK_AFTER_MS) }))
+        useGate.setState((g) => ({ covered: false, locked: g.locked || (getLock() !== null && idleTooLong(readLastActive())) }))
       }
     }
+    touch()
+    const t = setInterval(touch, 60_000)
     document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', touch)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', touch)
+    }
   }, [])
 
   if (!syncConfigured) return <>{children}</>

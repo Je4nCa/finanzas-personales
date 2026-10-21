@@ -82,7 +82,7 @@ export function AccountSection() {
         <div className="row">
           <div className="spacer">
             <div style={{ fontWeight: 520 }}>Bloqueo con {lockControls.label}</div>
-            <div className="sync-state">{lockOn ? 'Se pide al abrir la app y sirve para entrar' : 'Desactivado'}</div>
+            <div className="sync-state">{lockOn ? 'Se pide tras 1 hora sin usar la app y sirve para entrar' : 'Desactivado'}</div>
           </div>
           <button className={`pill-btn ${lockOn ? 'glass' : 'dark'}`} disabled={busy} onClick={toggleLock}>
             {lockOn ? 'Desactivar' : 'Activar'}
