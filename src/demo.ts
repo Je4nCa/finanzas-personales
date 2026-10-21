@@ -2,7 +2,7 @@ import { addMonths, currentMonth } from './domain/dates'
 import type { AppData } from './domain/types'
 
 /** Subir este número hace que la vista previa recargue los ejemplos. */
-export const DEMO_VERSION = 3
+export const DEMO_VERSION = 4
 
 /** Datos de ejemplo para la vista previa (artifact); nunca se cargan en la app instalada. */
 export function demoData(): AppData {
@@ -15,10 +15,10 @@ export function demoData(): AppData {
       { id: 'c2', name: 'Wink Mastercard', lastFour: '8841', closingDay: 28, paymentDay: 22, theme: 4 },
     ],
     expenses: [
-      { id: 'e1', description: 'Automercado', amount: 48500, currency: 'CRC', date: d(prev, 12), cardId: 'c1', category: 'Súper' },
-      { id: 'e2', description: 'Gasolina', amount: 30000, currency: 'CRC', date: d(prev, 18), cardId: 'c1', category: 'Transporte' },
+      { id: 'e1', description: 'Automercado', amount: 48500, currency: 'CRC', date: d(prev, 12), cardId: 'c1', category: 'Súper', scope: 'casa' },
+      { id: 'e2', description: 'Gasolina', amount: 30000, currency: 'CRC', date: d(prev, 18), cardId: 'c1', category: 'Transporte', scope: 'pareja' },
       { id: 'e3', description: 'Amazon', amount: 64.99, currency: 'USD', date: d(prev, 3), cardId: 'c1', category: 'Compras' },
-      { id: 'e4', description: 'Restaurante', amount: 22000, currency: 'CRC', date: d(prev, 14), cardId: 'c2', category: 'Comida' },
+      { id: 'e4', description: 'Restaurante', amount: 22000, currency: 'CRC', date: d(prev, 14), cardId: 'c2', category: 'Comida', scope: 'pareja' },
       { id: 'e5', description: 'Farmacia', amount: 12500, currency: 'CRC', date: d(m, 8), cardId: null, category: 'Salud' },
       { id: 'e6', description: 'Uber', amount: 4800, currency: 'CRC', date: d(m, 10), cardId: 'c1', category: 'Transporte' },
       { id: 'e7', description: 'Apple iCloud', amount: 2.99, currency: 'USD', date: d(prev, 9), cardId: 'c1', category: 'Ocio' },
@@ -26,13 +26,13 @@ export function demoData(): AppData {
     ],
     fixed: [
       { id: 'f1', description: 'Netflix', amount: 15.49, currency: 'USD', cardId: 'c1', startMonth: addMonths(m, -9), endMonth: null },
-      { id: 'f2', description: 'Internet Kölbi', amount: 24900, currency: 'CRC', cardId: 'c2', startMonth: addMonths(m, -9), endMonth: null },
+      { id: 'f2', description: 'Internet Kölbi', amount: 24900, currency: 'CRC', cardId: 'c2', startMonth: addMonths(m, -9), endMonth: null, scope: 'casa' },
       { id: 'f4', description: 'Claude Pro', amount: 20, currency: 'USD', cardId: 'c1', startMonth: addMonths(m, -3), endMonth: null },
       { id: 'f3', description: 'Spotify', amount: 5.99, currency: 'USD', cardId: 'c1', startMonth: addMonths(m, -7), endMonth: null },
     ],
     installments: [
       { id: 'i1', description: 'iPhone 17', total: 1199, currency: 'USD', cardId: 'c1', months: 12, firstMonth: addMonths(m, -4), paidMonths: [1, 2, 3, 4].map((k) => addMonths(m, -k)) },
-      { id: 'i2', description: 'Refrigeradora', total: 540000, currency: 'CRC', cardId: 'c2', months: 6, firstMonth: addMonths(m, -1), paidMonths: [addMonths(m, -1)] },
+      { id: 'i2', description: 'Refrigeradora', total: 540000, currency: 'CRC', cardId: 'c2', months: 6, firstMonth: addMonths(m, -1), paidMonths: [addMonths(m, -1)], scope: 'casa' },
     ],
     payments: [{ id: 'p1', cardId: 'c2', month: m, amount: 50000, currency: 'CRC', date: d(m, 6) }],
     incomes: [

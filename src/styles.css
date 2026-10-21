@@ -759,3 +759,21 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 }
 .import-amount button { font-weight: 600; font-size: 15px; padding: 2px 4px; border-radius: 8px; border-bottom: 1px dashed var(--line-strong); }
 .import-amount button.credit { color: var(--green); }
+
+.scope-split { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.scope-bar { display: flex; gap: 3px; height: 8px; border-radius: 99px; overflow: hidden; }
+.scope-bar span { border-radius: 99px; min-width: 4px; }
+.scope-bar .personal { background: var(--scope-personal); }
+.scope-bar .casa { background: var(--scope-casa); }
+.scope-bar .pareja { background: var(--scope-pareja); }
+.scope-split-cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.scope-split-cells > div { display: flex; flex-direction: column; gap: 2px; }
+.scope-split-cells .lbl { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.scope-split-cells .val { font-weight: 600; font-size: 14px; }
+.together-pill {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px;
+  padding: 10px 12px; border-radius: 14px; font-size: 13px; color: var(--scope-pareja);
+  background: color-mix(in srgb, var(--scope-pareja) 12%, transparent);
+}
+.scope-split .together-pill { margin-top: 0; }
+.together-pill strong { font-size: 15px; }

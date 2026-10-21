@@ -268,7 +268,7 @@ function fromHistory(description: string, history: Expense[]): Expense | undefin
 /** Categoría y tipo sugeridos para una descripción (historial primero, después palabras clave). */
 export function suggestFor(description: string, history: Expense[]): { category: string; scope?: ExpenseScope } {
   const past = fromHistory(description, history)
-  return { category: past?.category ?? categoryFromKeywords(description) ?? 'Otros', scope: past?.scope }
+  return { category: past?.category ?? categoryFromKeywords(description) ?? 'Otros', scope: past?.scope ?? scopeFromKeywords(description) }
 }
 
 /** Tarjeta más usada en el historial (o la primera). */
@@ -278,6 +278,20 @@ export function suggestedCard(cards: Card[], history: Expense[]): string | null 
   for (const e of history.slice(-50)) if (e.cardId) counts.set(e.cardId, (counts.get(e.cardId) ?? 0) + 1)
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
   return top && cards.some((c) => c.id === top[0]) ? top[0] : cards[0].id
+}
+
+// Comercios que por defecto son gastos en pareja (gasolina, peaje, súper grande, veterinaria).
+// Una corrección del usuario queda en el historial y gana sobre esta lista.
+const SCOPE_KEYWORDS: [ExpenseScope, string[]][] = [
+  ['pareja', ['servicentro', 'unopetrol', 'gasolinera', 'gasolina', 'combustible', 'pricesmart', 'price smart', 'maxipali', 'maxi pali', 'ruta 27', 'global via', 'peaje', 'pet shop', 'petshop', 'veterinaria', 'vete']],
+]
+
+export function scopeFromKeywords(text: string): ExpenseScope | undefined {
+  const n = ` ${norm(text)} `
+  for (const [scope, words] of SCOPE_KEYWORDS) {
+    if (words.some((w) => n.includes(` ${w} `) || (w.length >= 5 && n.includes(w)))) return scope
+  }
+  return undefined
 }
 
 // Frases de tipo de gasto; se quitan antes de leer la descripción.
@@ -349,7 +363,7 @@ export function parseExpense(rawText: string, ctx: ParseContext): ParsedExpense 
     currency,
     cardId: cardId !== undefined ? cardId : past ? past.cardId : undefined,
     category,
-    scope: spokenScope ?? past?.scope ?? 'personal',
+    scope: spokenScope ?? past?.scope ?? scopeFromKeywords(description || text) ?? 'personal',
     date,
     fortnight,
     found: {

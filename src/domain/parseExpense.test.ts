@@ -97,6 +97,23 @@ describe('parseExpense', () => {
     expect(cat('Unopetrol Barreal')).toBe('Transporte')
   })
 
+  it('comercios que por defecto son en pareja', () => {
+    const scope = (d: string) => suggestFor(d, []).scope
+    for (const d of ['Servicentro San Juan', 'Unopetrol Cariari', 'Pricesmart Heredia', 'Maxipali Santa Barbara Oc', 'Global Via Ruta 27', 'Pet Shop 2 Go', 'La Vete Cariari']) {
+      expect(scope(d), d).toBe('pareja')
+    }
+    expect(scope('Pali Heredia')).toBeUndefined()
+    expect(scope('Subway Liberia')).toBeUndefined()
+    // Por voz también, salvo que se diga otra cosa.
+    expect(p('gasolina 20 mil').scope).toBe('pareja')
+    expect(p('gasolina 20 mil personal').scope).toBe('personal')
+  })
+
+  it('una corrección del usuario gana sobre la regla del comercio', () => {
+    const history = [{ ...ctx.history[0], description: 'Pet Shop 2 Go', scope: 'casa' as const }]
+    expect(suggestFor('Pet Shop 2 Go', history).scope).toBe('casa')
+  })
+
   describe('ingresos', () => {
     it('frase con empresa', () => {
       expect(p('Me ingresó 500 mil por mi empresa de Montevo')).toMatchObject({
