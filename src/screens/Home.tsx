@@ -17,11 +17,11 @@ export function budgetStatus(usage: number): { label: string; tone: 'green' | 'a
   return { label: 'Vas bien', tone: 'green', color: 'var(--purple)' }
 }
 
-const ACTIONS: { kind: SheetKind; label: string; icon: typeof Plus }[] = [
+const ACTIONS: { kind: SheetKind; label: string; icon: typeof Plus; preset?: Record<string, unknown> }[] = [
   { kind: 'quick', label: 'Gasto', icon: ShoppingBag },
   { kind: 'fixed', label: 'Fijo', icon: Repeat },
   { kind: 'installment', label: 'Tasa cero', icon: CalendarClock },
-  { kind: 'income', label: 'Ingreso', icon: ArrowDownLeft },
+  { kind: 'quick', label: 'Ingreso', icon: ArrowDownLeft, preset: { kind: 'income' } },
   { kind: 'payment', label: 'Abono', icon: HandCoins },
 ]
 
@@ -92,7 +92,7 @@ export function Home({ goTo }: { goTo: (t: Tab) => void }) {
       <div className="card" style={{ marginTop: 12 }}>
         <div className="actions">
           {ACTIONS.map((a) => (
-            <button key={a.kind} className="action" onClick={() => open({ kind: data.cards.length || a.kind !== 'payment' ? a.kind : 'card' })}>
+            <button key={a.label} className="action" onClick={() => open({ kind: data.cards.length || a.kind !== 'payment' ? a.kind : 'card', preset: a.preset })}>
               <span className="icon-btn glass"><a.icon /></span>
               {a.label}
             </button>

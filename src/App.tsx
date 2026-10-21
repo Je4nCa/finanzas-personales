@@ -66,7 +66,7 @@ export default function App() {
             TABS.find((t) => t.id === tab)!.label
           )}
         </h1>
-        <button className="icon-btn glass" onClick={() => open({ kind: 'quick' })} aria-label="Gasto rápido por voz">
+        <button className="icon-btn glass" onClick={() => open({ kind: 'quick' })} aria-label="Agregar por voz">
           <Mic />
         </button>
       </header>

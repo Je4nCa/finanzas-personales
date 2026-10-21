@@ -73,4 +73,37 @@ describe('parseExpense', () => {
   it('miles con coma y últimos 4 dígitos', () => {
     expect(p('Ferretería EPA 32,000 con la 8841')).toMatchObject({ amount: 32000, cardId: 'bcr', category: 'Hogar', description: 'Ferretería EPA' })
   })
+
+  describe('ingresos', () => {
+    it('frase con empresa', () => {
+      expect(p('Me ingresó 500 mil por mi empresa de Montevo')).toMatchObject({
+        kind: 'income',
+        description: 'Montevo',
+        amount: 500000,
+        currency: 'CRC',
+        fortnight: 2,
+      })
+    })
+
+    it('dólares y "me cayó la plata"', () => {
+      expect(p('me cayó la plata de Montevo, 1200 dólares')).toMatchObject({ kind: 'income', description: 'Montevo', amount: 1200, currency: 'USD' })
+    })
+
+    it('salario queda como descripción y la quincena sale de la fecha', () => {
+      expect(parseExpense('salario 425 mil', { ...ctx, today: '2026-10-15' })).toMatchObject({ kind: 'income', description: 'Salario', amount: 425000, fortnight: 1 })
+    })
+
+    it('me pagaron + sinpe', () => {
+      expect(p('me pagaron 30 mil por SINPE del cliente de diseño')).toMatchObject({ kind: 'income', amount: 30000, description: 'Diseño' })
+    })
+
+    it('un gasto con "pagué" sigue siendo gasto', () => {
+      expect(p('pagué 15 mil de la luz').kind).toBe('expense')
+    })
+
+    it('usa el nombre de un ingreso anterior', () => {
+      const incomes = [{ id: 'i', description: 'Montevo', amount: 1, currency: 'USD' as const, date: '2026-09-30', fortnight: 2 as const }]
+      expect(parseExpense('me ingresaron 900 de montevo', { ...ctx, incomes })).toMatchObject({ kind: 'income', description: 'Montevo', currency: 'USD' })
+    })
+  })
 })

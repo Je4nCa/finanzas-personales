@@ -567,3 +567,5 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 }
 .choice .bank-logo { width: 22px; height: 22px; }
 .choice svg { display: block; }
+
+.income-amount .money-input .input { color: var(--green); }

@@ -1,11 +1,12 @@
-import type { Card, Currency, DateKey, Expense } from './types'
+import type { Card, Currency, DateKey, Expense, Income } from './types'
 
 /**
- * Interpreta una frase dictada ("25 mil en el Pali con la BAC") y extrae
- * descripción, monto, moneda, tarjeta, categoría y fecha. Todo local, sin red.
+ * Interpreta una frase dictada ("25 mil en el Pali con la BAC", "me ingresaron 500 mil de Montevo")
+ * y extrae si es gasto o ingreso, descripción, monto, moneda, tarjeta, categoría y fecha. Todo local, sin red.
  */
 
 export interface ParsedExpense {
+  kind: 'expense' | 'income'
   description: string
   amount: number | null
   currency: Currency
@@ -13,6 +14,8 @@ export interface ParsedExpense {
   cardId: string | null | undefined
   category: string
   date: DateKey
+  /** Quincena según el día (para ingresos). */
+  fortnight: 1 | 2
   /** Qué partes salieron de la frase (para resaltarlas en la vista previa). */
   found: { amount: boolean; currency: boolean; card: boolean; category: boolean; date: boolean }
 }
@@ -20,6 +23,7 @@ export interface ParsedExpense {
 export interface ParseContext {
   cards: Card[]
   history: Expense[]
+  incomes?: Income[]
   baseCurrency: Currency
   today: DateKey
 }
@@ -47,6 +51,18 @@ const VERBS = new Set([
   'gaste', 'compre', 'pague', 'gastamos', 'compramos', 'pagamos', 'me', 'salio', 'costo', 'fue', 'fueron',
   'anota', 'anote', 'anotar', 'registra', 'registrar', 'agrega', 'agregar', 'pon', 'pone', 'apunta', 'gasto', 'compra', 'pago', 'son', 'eran',
 ])
+// Verbos de ingreso: marcan la frase como ingreso y no forman parte de la descripción.
+const INCOME_VERBS = new Set([
+  'ingreso', 'ingresaron', 'ingresa', 'ingresan', 'entro', 'entraron', 'pagaron', 'recibi', 'recibimos', 'cobre', 'cobramos',
+  'depositaron', 'cayo', 'cayeron', 'gane', 'ganamos', 'transfirieron', 'mandaron', 'hicieron', 'giraron',
+])
+// Sustantivos de ingreso: marcan la frase como ingreso pero sí sirven de descripción ("Salario").
+const INCOME_NOUNS = new Set(['salario', 'sueldo', 'quincena', 'aguinaldo', 'bono', 'reembolso', 'comision', 'honorarios', 'venta', 'ventas', 'ganancia', 'dividendos', 'intereses'])
+const EXPENSE_VERBS = new Set(['gaste', 'compre', 'pague', 'gastamos', 'compramos', 'pagamos', 'costo', 'salio'])
+const INCOME_FILLER = new Set(['plata', 'dinero', 'cantidad', 'harina', 'un', 'una'])
+// "mi empresa de Montevo" → "Montevo".
+const INCOME_SOURCE_PREFIX = /^(empresa|trabajo|negocio|cliente|chamba|proyecto|compania|emprendimiento)\s+(de|del)\s+/i
+
 const EDGE_STOPWORDS = new Set(['en', 'de', 'del', 'con', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'por', 'para', 'y', 'al', 'mi', 'a', 'que', 'tarjeta', 'o'])
 
 const UNITS: Record<string, number> = {
@@ -258,14 +274,37 @@ export function parseExpense(text: string, ctx: ParseContext): ParsedExpense {
   const symbolCurrency = findCurrency(tokens)
   const amount = findAmount(tokens)
   const cardId = findCard(tokens, ctx.cards)
-  const date = findDate(tokens, ctx.today)
-  for (const t of tokens) if (VERBS.has(t.n)) t.used = true
+  const date = findDate(tokens, ctx.today) ?? ctx.today
+
+  const isExpenseVerb = tokens.some((t) => EXPENSE_VERBS.has(t.n))
+  const isIncome = !isExpenseVerb && tokens.some((t) => INCOME_VERBS.has(t.n) || INCOME_NOUNS.has(t.n))
+  for (const t of tokens) {
+    if (VERBS.has(t.n) || INCOME_VERBS.has(t.n) || (isIncome && INCOME_FILLER.has(t.n))) t.used = true
+  }
 
   const rest = tokens.filter((t) => !t.used).map((t) => t.raw)
   while (rest.length && EDGE_STOPWORDS.has(norm(rest[0]))) rest.shift()
   while (rest.length && EDGE_STOPWORDS.has(norm(rest[rest.length - 1]))) rest.pop()
-  const desc = rest.join(' ')
+  let desc = rest.join(' ')
+  if (isIncome) desc = desc.replace(INCOME_SOURCE_PREFIX, '')
   const description = desc ? desc[0].toUpperCase() + desc.slice(1) : ''
+  const fortnight: 1 | 2 = Number(date.slice(8, 10)) <= 15 ? 1 : 2
+
+  if (isIncome) {
+    const d = norm(description)
+    const past = d ? [...(ctx.incomes ?? [])].sort((a, b) => b.date.localeCompare(a.date)).find((i) => norm(i.description) === d) : undefined
+    return {
+      kind: 'income',
+      description: past?.description ?? (description || 'Ingreso'),
+      amount: amount ? Math.round(amount.value * 100) / 100 : null,
+      currency: symbolCurrency ?? amount?.currency ?? past?.currency ?? ctx.baseCurrency,
+      cardId: undefined,
+      category: 'Ingreso',
+      date,
+      fortnight,
+      found: { amount: !!amount, currency: !!symbolCurrency || !!amount?.currency, card: false, category: false, date: date !== ctx.today },
+    }
+  }
 
   const past = fromHistory(description, ctx.history)
   const keywordCategory = categoryFromKeywords(description) ?? categoryFromKeywords(text)
@@ -276,18 +315,20 @@ export function parseExpense(text: string, ctx: ParseContext): ParsedExpense {
   if (!symbolCurrency && !amount?.currency && !past && ctx.baseCurrency === 'CRC' && amount && amount.value < 300) currency = 'USD'
 
   return {
+    kind: 'expense',
     description: past && norm(past.description) === norm(description) ? past.description : description,
     amount: amount ? Math.round(amount.value * 100) / 100 : null,
     currency,
     cardId: cardId !== undefined ? cardId : past ? past.cardId : undefined,
     category,
-    date: date ?? ctx.today,
+    date,
+    fortnight,
     found: {
       amount: !!amount,
       currency: !!symbolCurrency || !!amount?.currency,
       card: cardId !== undefined,
       category: !!past || !!keywordCategory,
-      date: !!date,
+      date: date !== ctx.today,
     },
   }
 }

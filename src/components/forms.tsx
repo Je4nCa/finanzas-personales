@@ -246,16 +246,17 @@ function InstallmentForm({ id, preset }: SheetState) {
 
 /* ---------------- Ingreso ---------------- */
 
-function IncomeForm({ id }: SheetState) {
+function IncomeForm({ id, preset }: SheetState) {
   const { incomes, upsert, remove, settings } = useData()
   const month = useUi((s) => s.month)
   const existing = incomes.find((i) => i.id === id)
-  const defaultDate = month === currentMonth() ? todayKey() : `${month}-15`
-  const [description, setDescription] = useState(existing?.description ?? 'Salario')
-  const [amount, setAmount] = useState(existing ? String(existing.amount) : '')
-  const [currency, setCurrency] = useState<Currency>(existing?.currency ?? settings.baseCurrency)
+  const p = (preset ?? {}) as Partial<{ description: string; amount: string; currency: Currency; date: string; fortnight: 1 | 2 }>
+  const defaultDate = p.date ?? (month === currentMonth() ? todayKey() : `${month}-15`)
+  const [description, setDescription] = useState(existing?.description ?? p.description ?? 'Salario')
+  const [amount, setAmount] = useState(existing ? String(existing.amount) : (p.amount ?? ''))
+  const [currency, setCurrency] = useState<Currency>(existing?.currency ?? p.currency ?? settings.baseCurrency)
   const [date, setDate] = useState(existing?.date ?? defaultDate)
-  const [fortnight, setFortnight] = useState<1 | 2>(existing?.fortnight ?? (parseDate(defaultDate).day <= 15 ? 1 : 2))
+  const [fortnight, setFortnight] = useState<1 | 2>(existing?.fortnight ?? p.fortnight ?? (parseDate(defaultDate).day <= 15 ? 1 : 2))
   const n = parseAmount(amount)
 
   return (

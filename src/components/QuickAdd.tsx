@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { dateLabel, monthLabel, todayKey } from '../domain/dates'
 import { paymentMonthFor } from '../domain/finance'
 import { parseExpense, suggestedCard } from '../domain/parseExpense'
-import type { Currency, Expense } from '../domain/types'
+import type { Currency, Expense, Income } from '../domain/types'
 import { newId, useData } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { CATEGORIES } from './forms'
-import { CardPicker, Field, MoneyInput, Sheet } from './ui'
+import { CardPicker, Field, MoneyInput, Segmented, Sheet } from './ui'
 
 // Web Speech API: Safari y Chrome la exponen con prefijo.
 type Recognition = {
@@ -35,12 +35,13 @@ const VOICE_ERRORS: Record<string, string> = {
   'language-not-supported': `Este navegador no reconoce español. ${KEYBOARD}`,
 }
 
-const EXAMPLES = ['25 mil en el súper con la BAC', 'Uber 4800 ayer', 'Amazon $64.99 con la Mastercard', 'almuerzo 6500 en efectivo']
+const EXAMPLES = ['25 mil en el súper con la BAC', 'Uber 4800 ayer', 'Me ingresaron 500 mil de Montevo', 'almuerzo 6500 en efectivo']
 
-type Overrides = Partial<{ description: string; amount: string; currency: Currency; cardId: string | null; category: string; date: string }>
+type Kind = 'expense' | 'income'
+type Overrides = Partial<{ kind: Kind; description: string; amount: string; currency: Currency; cardId: string | null; category: string; date: string; fortnight: 1 | 2 }>
 
 export function QuickAdd({ preset }: SheetState) {
-  const { cards, expenses, settings, upsert } = useData()
+  const { cards, expenses, incomes, settings, upsert } = useData()
   const { close, open, showToast } = useOverlay()
   const [text, setText] = useState((preset?.text as string) ?? '')
   const [over, setOver] = useState<Overrides>({})
@@ -50,16 +51,22 @@ export function QuickAdd({ preset }: SheetState) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const parsed = useMemo(
-    () => parseExpense(text, { cards, history: expenses, baseCurrency: settings.baseCurrency, today: todayKey() }),
-    [text, cards, expenses, settings.baseCurrency],
+    () => parseExpense(text, { cards, history: expenses, incomes, baseCurrency: settings.baseCurrency, today: todayKey() }),
+    [text, cards, expenses, incomes, settings.baseCurrency],
   )
 
-  const description = over.description ?? (parsed.description || (parsed.found.category ? parsed.category : ''))
+  // La frase decide si es gasto o ingreso; abrir desde "Ingreso" o tocar el selector lo fija.
+  const kind: Kind = over.kind ?? (parsed.kind === 'income' ? 'income' : ((preset?.kind as Kind) ?? 'expense'))
+  const isIncome = kind === 'income'
+
+  const description =
+    over.description ?? (isIncome && parsed.kind === 'expense' ? parsed.description || 'Ingreso' : parsed.description || (!isIncome && parsed.found.category ? parsed.category : ''))
   const amountStr = over.amount ?? (parsed.amount !== null ? String(parsed.amount) : '')
   const currency = over.currency ?? parsed.currency
   const cardId = over.cardId !== undefined ? over.cardId : parsed.cardId !== undefined ? parsed.cardId : suggestedCard(cards, expenses)
   const category = over.category ?? parsed.category
   const date = over.date ?? parsed.date
+  const fortnight: 1 | 2 = over.fortnight ?? (Number(date.slice(8, 10)) <= 15 ? 1 : 2)
   const amount = parseFloat(amountStr)
   const valid = amount > 0 && !!description.trim()
   const card = cards.find((c) => c.id === cardId)
@@ -120,6 +127,13 @@ export function QuickAdd({ preset }: SheetState) {
 
   const save = () => {
     if (!valid) return
+    if (isIncome) {
+      const inc: Income = { id: newId(), description: description.trim(), amount: Math.round(amount * 100) / 100, currency, date, fortnight }
+      upsert('incomes', inc)
+      close()
+      showToast(`Ingreso de ${inc.description} guardado`)
+      return
+    }
     const exp: Expense = {
       id: newId(),
       description: description.trim(),
@@ -137,16 +151,25 @@ export function QuickAdd({ preset }: SheetState) {
   const set = (patch: Overrides) => setOver((o) => ({ ...o, ...patch }))
 
   return (
-    <Sheet title="Gasto rápido" onClose={close}>
+    <Sheet title={isIncome ? 'Ingreso rápido' : 'Gasto rápido'} onClose={close}>
       <div className="form">
         <div className="voice">
-          <button className={`mic ${listening ? 'on' : ''}`} onClick={() => (listening ? stopVoice() : startVoice())} aria-label={listening ? 'Detener' : 'Dictar gasto'}>
+          <button className={`mic ${listening ? 'on' : ''}`} onClick={() => (listening ? stopVoice() : startVoice())} aria-label={listening ? 'Detener' : 'Dictar gasto o ingreso'}>
             <span className="mic-ring" />
             <span className="mic-ring delay" />
             <span className="mic-core">{listening ? <Square /> : <Mic />}</span>
           </button>
-          <div className="voice-hint">{listening ? 'Escuchando…' : 'Tocá y decí tu gasto'}</div>
+          <div className="voice-hint">{listening ? 'Escuchando…' : 'Tocá y decí un gasto o un ingreso'}</div>
         </div>
+
+        <Segmented
+          value={kind}
+          onChange={(k) => set({ kind: k })}
+          options={[
+            { value: 'expense', label: 'Gasto' },
+            { value: 'income', label: 'Ingreso' },
+          ]}
+        />
 
         <input
           ref={inputRef}
@@ -154,7 +177,7 @@ export function QuickAdd({ preset }: SheetState) {
           value={text}
           onChange={(e) => {
             setText(e.target.value)
-            setOver({})
+            setOver((o) => ({ kind: o.kind }))
           }}
           placeholder={`Ej. ${EXAMPLES[0]}`}
           enterKeyHint="done"
@@ -176,7 +199,22 @@ export function QuickAdd({ preset }: SheetState) {
               <Sparkles size={15} /> Entendí esto, tocá lo que quieras cambiar
             </div>
             <input className="parsed-title" value={description} onChange={(e) => set({ description: e.target.value })} placeholder="Descripción" />
-            <MoneyInput amount={amountStr} currency={currency} onAmount={(v) => set({ amount: v })} onCurrency={(c) => set({ currency: c })} />
+            <div className={isIncome ? 'income-amount' : ''}>
+              <MoneyInput amount={amountStr} currency={currency} onAmount={(v) => set({ amount: v })} onCurrency={(c) => set({ currency: c })} />
+            </div>
+            {isIncome ? (
+              <Field label="Quincena">
+                <Segmented
+                  value={String(fortnight) as '1' | '2'}
+                  onChange={(v) => set({ fortnight: v === '1' ? 1 : 2 })}
+                  options={[
+                    { value: '1', label: 'Primera (1–15)' },
+                    { value: '2', label: 'Segunda (16–fin)' },
+                  ]}
+                />
+              </Field>
+            ) : (
+              <>
             <Field label="Tarjeta">
               <CardPicker cards={cards} value={cardId ?? null} onChange={(id) => set({ cardId: id })} />
             </Field>
@@ -189,9 +227,15 @@ export function QuickAdd({ preset }: SheetState) {
                 ))}
               </div>
             </Field>
+              </>
+            )}
             <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
               <span className="chip">{date === todayKey() ? 'Hoy' : dateLabel(date)}</span>
-              <span className="chip purple">{card ? `Se cobra en ${monthLabel(paymentMonthFor(card, date))}` : 'Efectivo / débito'}</span>
+              {isIncome ? (
+                <span className="chip green">Suma a {monthLabel(date.slice(0, 7))}</span>
+              ) : (
+                <span className="chip purple">{card ? `Se cobra en ${monthLabel(paymentMonthFor(card, date))}` : 'Efectivo / débito'}</span>
+              )}
             </div>
           </div>
         )}
@@ -200,10 +244,11 @@ export function QuickAdd({ preset }: SheetState) {
           <button
             className="pill-btn glass block"
             onClick={() =>
-              open({
-                kind: 'expense',
-                preset: { description, amount: amountStr, currency, cardId: cardId ?? null, category, date },
-              })
+              open(
+                isIncome
+                  ? { kind: 'income', preset: { description, amount: amountStr, currency, date, fortnight } }
+                  : { kind: 'expense', preset: { description, amount: amountStr, currency, cardId: cardId ?? null, category, date } },
+              )
             }
           >
             Más detalles

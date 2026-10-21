@@ -171,7 +171,7 @@ function Incomes() {
           </div>
         )
       })}
-      <AddButton label="Agregar ingreso" onClick={() => open({ kind: 'income' })} />
+      <AddButton label="Agregar ingreso" onClick={() => open({ kind: 'quick', preset: { kind: 'income' } })} />
     </>
   )
 }
