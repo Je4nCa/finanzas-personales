@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
+import { AuthGate } from './components/AuthGate'
 import { loadEngine, syncConfigured } from './sync/status'
 import './styles.css'
 
@@ -11,6 +12,8 @@ if (syncConfigured) void loadEngine().then((m) => m.startSync())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthGate>
+      <App />
+    </AuthGate>
   </StrictMode>,
 )

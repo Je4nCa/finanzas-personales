@@ -660,3 +660,26 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 .account .sync-state.error { color: var(--red); }
 .account .sync-state.syncing { color: var(--purple); }
 .fine-print { font-size: 12.5px; color: var(--muted); margin: 12px 2px 0; line-height: 1.5; }
+
+/* ---------- Login y bloqueo ---------- */
+
+.gate {
+  position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+  padding: calc(var(--safe-top) + 24px) 20px calc(var(--safe-bottom) + 24px);
+  background: var(--bg);
+}
+.gate-cover { color: var(--muted); }
+.gate-cover svg { width: 34px; height: 34px; }
+.gate-card {
+  width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; text-align: center;
+  animation: rise 0.5s var(--spring) both;
+}
+.gate-card h1 { margin: 18px 0 6px; font-size: 24px; font-weight: 650; letter-spacing: -0.03em; }
+.gate-card p { margin: 0 0 26px; color: var(--text-2); font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.gate-icon {
+  width: 76px; height: 76px; border-radius: 24px; display: grid; place-items: center;
+  background: var(--ink); color: var(--on-ink); box-shadow: 0 12px 34px rgba(122, 113, 234, 0.3);
+}
+.gate-icon svg { width: 34px; height: 34px; stroke-width: 1.6; }
+.gate-form { width: 100%; text-align: left; }
+.gate-error { white-space: normal; padding: 8px 10px; align-self: stretch; }

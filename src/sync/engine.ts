@@ -187,8 +187,12 @@ let started = false
 export async function startSync() {
   if (started) return
   started = true
-  meta = { ...meta, ...((await idbGet<Meta>(META_KEY)) ?? {}) }
-  await waitForHydration()
+  try {
+    meta = { ...meta, ...((await idbGet<Meta>(META_KEY)) ?? {}) }
+    await waitForHydration()
+  } catch (e) {
+    console.error('sync start', e)
+  }
 
   // Cada cambio local entra a la cola (excepto los que vienen del servidor).
   useData.subscribe((next, prev) => {
@@ -208,7 +212,7 @@ export async function startSync() {
 
   const { data } = await supabase.auth.getSession()
   session = data.session
-  status({ email: session?.user.email ?? null })
+  status({ email: session?.user.email ?? null, ready: true })
   supabase.auth.onAuthStateChange((event, s) => {
     session = s
     status({ email: s?.user.email ?? null, ...(s ? {} : { state: 'off' as const }) })
@@ -235,6 +239,16 @@ export async function signUp(email: string, password: string) {
   return { needsConfirmation: !data.session }
 }
 
+/** Sube lo pendiente, cierra la sesión y borra los datos de este dispositivo (siguen en la nube). */
 export async function signOut() {
+  if (Object.keys(meta.pending).length || meta.settingsV) {
+    await syncNow()
+    if (Object.keys(meta.pending).length || meta.settingsV) {
+      throw new Error('Hay cambios que todavía no se subieron. Conectate a internet y probá de nuevo.')
+    }
+  }
   await supabase.auth.signOut()
+  applyRemote((s) => ({ ...emptyData(), settings: { ...emptyData().settings, theme: s.settings.theme } }))
+  meta = { userId: null, lastPulledAt: null, pending: {}, settingsV: 0 }
+  await saveMeta()
 }
