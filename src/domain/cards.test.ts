@@ -53,3 +53,10 @@ describe('pagos mensuales desde una cuenta', () => {
     expect(accountBalance({ incomes: [], expenses: [], installments: [prestamo] }, c).CRC).toBe(350000)
   })
 })
+
+describe('ingreso programado en una cuenta', () => {
+  it('no suma al disponible hasta confirmarlo', () => {
+    const b = accountBalance({ incomes: [inc({ amount: 134000, status: 'expected' }), inc({ amount: 1000 })], expenses: [] }, card)
+    expect(b.CRC).toBe(1000)
+  })
+})

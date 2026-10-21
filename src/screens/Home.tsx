@@ -1,8 +1,8 @@
 import { ArrowDownLeft, HandCoins, Plus, Receipt, Repeat, ShoppingBag, Wallet } from 'lucide-react'
 import { useMemo } from 'react'
 import { amountsFor, cardCurrency } from '../domain/cards'
-import { addMonths, dayInMonthLabel, monthShort } from '../domain/dates'
-import { formatMoney, monthBalance } from '../domain/finance'
+import { addMonths, todayKey, dayInMonthLabel, monthShort } from '../domain/dates'
+import { dueExpectedIncomes, formatMoney, monthBalance } from '../domain/finance'
 import type { AppData, MonthKey } from '../domain/types'
 import { CreditCard, Delta, Gauge, IconTile, Money, MonthNav, Progress } from '../components/ui'
 import { useUi } from '../store/store'
@@ -30,11 +30,19 @@ export function Home({ goTo }: { goTo: (t: Tab) => void }) {
   const open = useOverlay((s) => s.open)
   const base = data.settings.baseCurrency
   const status = budgetStatus(b.usage)
+  const dueIncomes = dueExpectedIncomes(data.incomes, todayKey()).length
   const hasActivity = b.income > 0 || b.expenses > 0
 
   return (
     <>
       <MonthNav />
+      {dueIncomes > 0 && (
+        <button className="due-pill" onClick={() => open({ kind: 'confirmIncomes' })}>
+          <Wallet size={16} /> {dueIncomes === 1 ? 'Tenés 1 ingreso por confirmar' : `Tenés ${dueIncomes} ingresos por confirmar`}
+          <span className="spacer" />
+          Revisar
+        </button>
+      )}
 
       {/* En el teléfono las columnas no existen (display: contents); en la Mac son dos. */}
       <div className="home-grid">
@@ -46,8 +54,16 @@ export function Home({ goTo }: { goTo: (t: Tab) => void }) {
               </div>
               <div className="kpi-value"><Money amount={b.income} currency={base} compact /></div>
               <div className="kpi-foot">
-                <Delta value={change(b.income, pb.income)} />
-                <span>vs mes ant.</span>
+                {b.expectedIncome > 0 ? (
+                  <span className="expected-note">
+                    + <Money amount={b.expectedIncome} currency={base} compact /> por recibir
+                  </span>
+                ) : (
+                  <>
+                    <Delta value={change(b.income, pb.income)} />
+                    <span>vs mes ant.</span>
+                  </>
+                )}
               </div>
             </div>
             <div className="card kpi">

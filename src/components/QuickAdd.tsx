@@ -4,7 +4,7 @@ import { dateLabel, monthLabel, todayKey } from '../domain/dates'
 import { defaultAccount, fixedCurrency, isCredit } from '../domain/cards'
 import { convert, formatMoney, paymentMonthFor } from '../domain/finance'
 import { parseExpense, suggestedCard } from '../domain/parseExpense'
-import type { Currency, Expense, ExpenseScope, Income } from '../domain/types'
+import type { Currency, Expense, ExpenseScope, Income, IncomeStatus } from '../domain/types'
 import { newId, useData } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { CATEGORIES } from './forms'
@@ -39,7 +39,7 @@ const VOICE_ERRORS: Record<string, string> = {
 const EXAMPLES = ['25 mil en el súper con la BAC', 'Uber 4800 ayer', 'Me ingresaron 500 mil de Montevo', 'almuerzo 6500 en efectivo']
 
 type Kind = 'expense' | 'income'
-type Overrides = Partial<{ kind: Kind; description: string; amount: string; currency: Currency; cardId: string | null; accountId: string | null; category: string; scope: ExpenseScope; date: string; fortnight: 1 | 2 }>
+type Overrides = Partial<{ kind: Kind; description: string; amount: string; currency: Currency; cardId: string | null; accountId: string | null; category: string; scope: ExpenseScope; date: string; fortnight: 1 | 2; status: IncomeStatus }>
 
 export function QuickAdd({ preset }: SheetState) {
   const { cards, expenses, incomes, settings, upsert } = useData()
@@ -69,6 +69,8 @@ export function QuickAdd({ preset }: SheetState) {
   const scope = over.scope ?? parsed.scope
   const date = over.date ?? parsed.date
   const fortnight: 1 | 2 = over.fortnight ?? (Number(date.slice(8, 10)) <= 15 ? 1 : 2)
+  // Ingreso a futuro: programado hasta que se confirme que llegó.
+  const status: IncomeStatus = over.status ?? (parsed.kind === 'income' ? parsed.status : date > todayKey() ? 'expected' : 'received')
   // Tarjeta de una sola moneda: el gasto queda en esa moneda. Si se dijo en la otra, se convierte
   // con el tipo de cambio como aproximación (el monto real es el que diga el estado de cuenta).
   // Ingreso: a qué cuenta entró (la mencionada si es de débito/cuenta, si no la habitual).
@@ -147,11 +149,12 @@ export function QuickAdd({ preset }: SheetState) {
         date,
         fortnight,
         accountId,
+        status,
         createdAt: new Date().toISOString(),
       }
       upsert('incomes', inc)
       close()
-      showToast(`Ingreso de ${inc.description} guardado`)
+      showToast(status === 'expected' ? `${inc.description} programado para el ${dateLabel(date)}` : `Ingreso de ${inc.description} guardado`)
       return
     }
     const exp: Expense = {
@@ -239,7 +242,16 @@ export function QuickAdd({ preset }: SheetState) {
             </div>
             {isIncome ? (
               <>
-              <Field label="¿A qué cuenta entró?">
+              <Segmented
+                small
+                value={status}
+                onChange={(v) => set({ status: v })}
+                options={[
+                  { value: 'received', label: 'Ya lo recibí' },
+                  { value: 'expected', label: 'Programado' },
+                ]}
+              />
+              <Field label={status === 'expected' ? '¿A qué cuenta va a entrar?' : '¿A qué cuenta entró?'}>
                 <AccountPicker cards={cards} value={accountId} onChange={(id) => set({ accountId: id })} />
               </Field>
               <Field label="Quincena">
@@ -275,7 +287,9 @@ export function QuickAdd({ preset }: SheetState) {
             <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
               <span className="chip">{date === todayKey() ? 'Hoy' : dateLabel(date)}</span>
               {isIncome ? (
-                <span className="chip green">Suma a {monthLabel(date.slice(0, 7))}</span>
+                <span className={`chip ${status === 'expected' ? 'purple' : 'green'}`}>
+                  {status === 'expected' ? `Te pregunto el ${dateLabel(date)} si llegó` : `Suma a ${monthLabel(date.slice(0, 7))}`}
+                </span>
               ) : (
                 <span className="chip purple">
                   {card && isCredit(card) ? `Se cobra en ${monthLabel(paymentMonthFor(card, date))}` : `Cuenta en ${monthLabel(date.slice(0, 7))}`}
@@ -291,7 +305,7 @@ export function QuickAdd({ preset }: SheetState) {
             onClick={() =>
               open(
                 isIncome
-                  ? { kind: 'income', preset: { description, amount: finalAmountStr, currency: finalCurrency, date, fortnight, accountId } }
+                  ? { kind: 'income', preset: { description, amount: finalAmountStr, currency: finalCurrency, date, fortnight, accountId, status } }
                   : { kind: 'expense', preset: { description, amount: finalAmountStr, currency: finalCurrency, cardId: cardId ?? null, category, scope, date } },
               )
             }

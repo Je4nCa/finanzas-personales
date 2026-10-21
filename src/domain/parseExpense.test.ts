@@ -161,6 +161,30 @@ describe('parseExpense', () => {
       expect(p('pagué 15 mil de la luz').kind).toBe('expense')
     })
 
+    it('ingreso a futuro con fecha: queda programado', () => {
+      expect(p('me van a pagar 134 mil de Montevo Studio el 1 de noviembre')).toMatchObject({
+        kind: 'income',
+        description: 'Montevo Studio',
+        amount: 134000,
+        date: '2026-11-01',
+        status: 'expected',
+        fortnight: 1,
+      })
+      // La fecha antes del monto no confunde el "1" con el monto.
+      expect(p('el 1 de noviembre me pagan 60 mil de Montevo')).toMatchObject({ amount: 60000, date: '2026-11-01', status: 'expected', description: 'Montevo' })
+    })
+
+    it('ingreso de hoy o pasado: recibido', () => {
+      expect(p('me pagaron 30 mil de Montevo ayer')).toMatchObject({ status: 'received', date: '2026-10-19' })
+      expect(p('salario 400 mil mañana')).toMatchObject({ status: 'expected', date: '2026-10-21' })
+    })
+
+    it('fechas con mes y año', () => {
+      expect(p('gasolina 20 mil el 5 de octubre').date).toBe('2026-10-05')
+      expect(p('me pagan 100 mil el 15 de enero').date).toBe('2027-01-15')
+      expect(p('me pagan 100 mil el 15 de enero de 2026').date).toBe('2026-01-15')
+    })
+
     it('usa el nombre de un ingreso anterior', () => {
       const incomes = [{ id: 'i', description: 'Montevo', amount: 1, currency: 'USD' as const, date: '2026-09-30', fortnight: 2 as const }]
       expect(parseExpense('me ingresaron 900 de montevo', { ...ctx, incomes })).toMatchObject({ kind: 'income', description: 'Montevo', currency: 'USD' })

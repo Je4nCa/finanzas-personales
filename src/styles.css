@@ -807,3 +807,13 @@ button.card:active, .carousel > button:active { transform: scale(0.97); transiti
 .currency-lock svg { width: 14px; height: 14px; color: var(--muted); }
 .amount-plus { color: var(--muted); font-weight: 450; }
 .cc .cc-amount-extra { font-size: 16px; font-weight: 600; opacity: 0.85; }
+
+/* ---------- Ingresos programados ---------- */
+.expected-note { color: var(--purple); font-weight: 550; }
+.expected-card { border: 1px dashed color-mix(in srgb, var(--purple) 40%, transparent); }
+.confirm-card { padding: 14px; }
+.confirm-amount { font-weight: 650; font-size: 17px; color: var(--green); white-space: nowrap; }
+.due-pill {
+  display: flex; align-items: center; gap: 8px; width: 100%; margin: -4px 0 14px; padding: 12px 14px; border-radius: 16px;
+  font-size: 14px; font-weight: 550; color: var(--purple); background: var(--purple-soft); text-align: left;
+}

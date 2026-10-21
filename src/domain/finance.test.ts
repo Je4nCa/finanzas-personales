@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { amountsFor, fixedCurrency } from './cards'
-import { installmentIndex, remainingDebt } from './finance'
+import { dueExpectedIncomes, installmentIndex, remainingDebt } from './finance'
+import { emptyData } from '../store/store'
 import { cardSummaries, chargesForMonth, installmentAmount, monthBalance, paymentMonthFor } from './finance'
 import type { AppData } from './types'
 
@@ -115,5 +116,21 @@ describe('pagos mensuales', () => {
     expect(installmentIndex(s, '2030-06')).toBeGreaterThan(0)
     expect(installmentIndex(s, '2025-12')).toBe(-1)
     expect(remainingDebt(s)).toBe(0)
+  })
+})
+
+describe('ingresos programados', () => {
+  const inc = (p: object) => ({ id: 'i', description: 'Montevo', amount: 134000, currency: 'CRC' as const, date: '2026-11-01', fortnight: 1 as const, ...p })
+  it('no cuentan como ingreso del mes hasta confirmarlos', () => {
+    const d = { ...emptyData(), incomes: [inc({ status: 'expected' }), inc({ id: 'r', amount: 50000 })] }
+    const b = monthBalance(d as AppData, '2026-11')
+    expect(b.income).toBe(50000)
+    expect(b.expectedIncome).toBe(134000)
+  })
+  it('se preguntan desde su fecha en adelante', () => {
+    const list = [inc({ id: 'a', status: 'expected' }), inc({ id: 'b', status: 'expected', date: '2026-11-15' }), inc({ id: 'c' })]
+    expect(dueExpectedIncomes(list, '2026-10-31').map((i) => i.id)).toEqual([])
+    expect(dueExpectedIncomes(list, '2026-11-01').map((i) => i.id)).toEqual(['a'])
+    expect(dueExpectedIncomes(list, '2026-11-20').map((i) => i.id)).toEqual(['a', 'b'])
   })
 })

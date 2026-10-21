@@ -120,6 +120,8 @@ export interface CardPayment {
   date: DateKey
 }
 
+export type IncomeStatus = 'expected' | 'received'
+
 export interface Income {
   id: string
   description: string
@@ -130,6 +132,8 @@ export interface Income {
   fortnight: 1 | 2
   /** Cuenta o tarjeta de débito donde entró el dinero. */
   accountId?: string | null
+  /** "expected" = programado: no cuenta hasta confirmarlo. Ausente = recibido. */
+  status?: IncomeStatus
   /** Momento (ISO) en que se registró. */
   createdAt?: string | null
   /** Línea del estado de cuenta de donde salió (evita importarla dos veces). */

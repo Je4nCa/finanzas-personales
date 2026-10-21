@@ -51,6 +51,8 @@ function afterAnchor(date: string, createdAt: string | null | undefined, anchor:
 export function accountBalance(data: Pick<AppData, 'expenses' | 'incomes'> & Partial<Pick<AppData, 'installments'>>, card: Card): ByCurrency {
   const t: ByCurrency = { CRC: card.balances?.CRC ?? 0, USD: card.balances?.USD ?? 0 }
   for (const i of data.incomes) {
+    // Un ingreso programado no es plata disponible hasta confirmarlo.
+    if (i.status === 'expected') continue
     if (i.accountId === card.id && afterAnchor(i.date, i.createdAt, card.balanceAt)) t[i.currency] += i.amount
   }
   for (const e of data.expenses) {

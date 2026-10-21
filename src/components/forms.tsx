@@ -3,11 +3,12 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { addMonths, currentMonth, dateLabel, monthDiff, monthLabel, parseDate, todayKey } from '../domain/dates'
 import { cardLabel, CURRENCY_LABEL, defaultAccount, fixedCurrency, isCredit, KIND_LABEL } from '../domain/cards'
 import { formatMoney, paymentMonthFor, RECURRING_LABEL } from '../domain/finance'
-import type { Card, CardBank, CardCurrency, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment, RecurringType } from '../domain/types'
+import type { Card, CardBank, CardCurrency, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, IncomeStatus, Installment, RecurringType } from '../domain/types'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { AccountPicker, cardSwatch, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
 import { BalanceSheet } from './BalanceSheet'
+import { ConfirmIncomes } from './ConfirmIncomes'
 import { ImportSheet } from './ImportSheet'
 import { QuickAdd } from './QuickAdd'
 import { SettingsSheet } from './SettingsSheet'
@@ -358,13 +359,15 @@ function IncomeForm({ id, preset }: SheetState) {
   const { incomes, cards, upsert, remove, settings } = useData()
   const month = useUi((s) => s.month)
   const existing = incomes.find((i) => i.id === id)
-  const p = (preset ?? {}) as Partial<{ description: string; amount: string; currency: Currency; date: string; fortnight: 1 | 2; accountId: string | null }>
+  const p = (preset ?? {}) as Partial<{ description: string; amount: string; currency: Currency; date: string; fortnight: 1 | 2; accountId: string | null; status: IncomeStatus }>
   const defaultDate = p.date ?? (month === currentMonth() ? todayKey() : `${month}-15`)
   const [description, setDescription] = useState(existing?.description ?? p.description ?? 'Salario')
   const [amount, setAmount] = useState(existing ? String(existing.amount) : (p.amount ?? ''))
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? p.currency ?? settings.baseCurrency)
   const [date, setDate] = useState(existing?.date ?? defaultDate)
   const [fortnight, setFortnight] = useState<1 | 2>(existing?.fortnight ?? p.fortnight ?? (parseDate(defaultDate).day <= 15 ? 1 : 2))
+  // Fecha futura = programado (no cuenta hasta confirmarlo); se puede cambiar.
+  const [status, setStatus] = useState<IncomeStatus>(existing?.status ?? p.status ?? (defaultDate > todayKey() ? 'expected' : 'received'))
   const [accountId, setAccountId] = useState<string | null>(existing ? (existing.accountId ?? null) : p.accountId !== undefined ? p.accountId : defaultAccount(cards, incomes))
   // Una cuenta de una sola moneda recibe sí o sí en esa moneda.
   const lockCur = fixedCurrency(cards.find((c) => c.id === accountId))
@@ -373,7 +376,7 @@ function IncomeForm({ id, preset }: SheetState) {
 
   return (
     <FormShell
-      title={existing ? 'Editar ingreso' : 'Nuevo ingreso'}
+      title={existing ? (status === 'expected' ? 'Ingreso programado' : 'Editar ingreso') : 'Nuevo ingreso'}
       valid={!!n && !!description.trim() && !!date}
       onDelete={existing && (() => remove('incomes', existing.id))}
       onSubmit={() =>
@@ -386,7 +389,9 @@ function IncomeForm({ id, preset }: SheetState) {
           date,
           fortnight,
           accountId,
-          createdAt: existing ? existing.createdAt : new Date().toISOString(),
+          status,
+          // Al confirmarlo se registra la hora, para que cuente contra un ajuste de saldo del mismo día.
+          createdAt: existing && existing.status === status ? existing.createdAt : new Date().toISOString(),
         } satisfies Income)
       }
     >
@@ -394,7 +399,16 @@ function IncomeForm({ id, preset }: SheetState) {
       <Field label="Descripción">
         <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
-      <Field label="¿A qué cuenta entró?">
+      <Segmented
+        value={status}
+        onChange={setStatus}
+        options={[
+          { value: 'received', label: 'Ya lo recibí' },
+          { value: 'expected', label: 'Programado' },
+        ]}
+      />
+      {status === 'expected' && <Hint>No cuenta en tus ingresos ni en el disponible hasta que confirmes que llegó. Ese día la app te pregunta.</Hint>}
+      <Field label={status === 'expected' ? '¿A qué cuenta va a entrar?' : '¿A qué cuenta entró?'}>
         <AccountPicker cards={cards} value={accountId} onChange={setAccountId} />
       </Field>
       <Field label="Quincena">
@@ -415,6 +429,7 @@ function IncomeForm({ id, preset }: SheetState) {
           onChange={(e) => {
             setDate(e.target.value)
             if (e.target.value) setFortnight(parseDate(e.target.value).day <= 15 ? 1 : 2)
+            if (!existing && e.target.value) setStatus(e.target.value > todayKey() ? 'expected' : 'received')
           }}
         />
       </Field>
@@ -613,6 +628,8 @@ export function SheetHost() {
       return <ImportSheet key={key} />
     case 'balance':
       return <BalanceSheet key={key} {...sheet} />
+    case 'confirmIncomes':
+      return <ConfirmIncomes key={key} />
     case 'expense':
       return <ExpenseForm key={key} {...sheet} />
     case 'fixed':

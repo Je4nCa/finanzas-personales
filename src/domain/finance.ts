@@ -1,6 +1,6 @@
 import { isCredit } from './cards'
 import { addMonths, clampDay, monthDiff, monthOf, parseDate } from './dates'
-import type { AppData, Card, Currency, DateKey, ExpenseScope, Installment, MonthKey, Settings } from './types'
+import type { AppData, Card, Currency, DateKey, ExpenseScope, Income, Installment, MonthKey, Settings } from './types'
 
 /**
  * Mes en que se paga una compra hecha con una tarjeta.
@@ -177,8 +177,18 @@ export function cardSummaries(data: AppData, month: MonthKey, charges = chargesF
   })
 }
 
+/** Un ingreso programado todavía no es plata disponible. */
+export const isReceived = (i: Pick<Income, 'status'>) => i.status !== 'expected'
+
+/** Ingresos programados cuya fecha ya llegó y falta confirmar. */
+export function dueExpectedIncomes(incomes: Income[], today: DateKey): Income[] {
+  return incomes.filter((i) => i.status === 'expected' && i.date <= today).sort((a, b) => a.date.localeCompare(b.date))
+}
+
 export interface MonthBalance {
   income: number
+  /** Programados del mes, aún sin confirmar. */
+  expectedIncome: number
   expenses: number
   free: number
   budget: number
@@ -191,12 +201,15 @@ export interface MonthBalance {
 export function monthBalance(data: AppData, month: MonthKey, charges = chargesForMonth(data, month)): MonthBalance {
   const s = data.settings
   const creditIds = new Set(data.cards.filter(isCredit).map((c) => c.id))
-  const income = toBase(sumByCurrency(data.incomes.filter((i) => monthOf(i.date) === month)), s)
+  const monthIncomes = data.incomes.filter((i) => monthOf(i.date) === month)
+  const income = toBase(sumByCurrency(monthIncomes.filter(isReceived)), s)
+  const expectedIncome = toBase(sumByCurrency(monthIncomes.filter((i) => !isReceived(i))), s)
   const expenses = toBase(sumByCurrency(charges), s)
   const kindTotal = (k: ChargeKind) => toBase(sumByCurrency(charges.filter((c) => c.kind === k)), s)
   const budget = s.monthlyBudget > 0 ? s.monthlyBudget : income
   return {
     income,
+    expectedIncome,
     expenses,
     free: income - expenses,
     budget,

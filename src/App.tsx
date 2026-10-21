@@ -6,7 +6,9 @@ import { Home } from './screens/Home'
 import { Installments } from './screens/Installments'
 import { Movements } from './screens/Movements'
 import { Payments } from './screens/Payments'
-import { addMonths } from './domain/dates'
+import { addMonths, todayKey } from './domain/dates'
+import { dueExpectedIncomes } from './domain/finance'
+import { isSnoozed } from './lib/snooze'
 import { useData, useUi } from './store/store'
 import { useOverlay } from './store/ui'
 
@@ -36,6 +38,33 @@ export default function App() {
     const t = setTimeout(() => open({ kind: 'quick', preset: { text } }), 300)
     return () => clearTimeout(t)
   }, [open])
+
+  // El día de un ingreso programado (o después), la app pregunta si llegó. Una vez por apertura;
+  // "Todavía no" lo pospone hasta mañana.
+  const incomes = useData((s) => s.incomes)
+  const asked = useRef(false)
+  useEffect(() => {
+    const check = () => {
+      if (asked.current || useOverlay.getState().sheet) return
+      const due = dueExpectedIncomes(incomes, todayKey()).filter((i) => !isSnoozed(i.id))
+      if (due.length) {
+        asked.current = true
+        open({ kind: 'confirmIncomes' })
+      }
+    }
+    const t = setTimeout(check, 1200)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        asked.current = false
+        setTimeout(check, 800)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [incomes, open])
 
   useEffect(() => {
     const root = document.documentElement

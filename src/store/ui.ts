@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type SheetKind = 'quick' | 'import' | 'balance' | 'expense' | 'fixed' | 'installment' | 'income' | 'payment' | 'card' | 'settings'
+export type SheetKind = 'quick' | 'import' | 'balance' | 'confirmIncomes' | 'expense' | 'fixed' | 'installment' | 'income' | 'payment' | 'card' | 'settings'
 
 export interface SheetState {
   kind: SheetKind

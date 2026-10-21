@@ -1,4 +1,4 @@
-import type { Card, Currency, DateKey, Expense, ExpenseScope, Income } from './types'
+import type { Card, Currency, DateKey, Expense, ExpenseScope, Income, IncomeStatus } from './types'
 
 /**
  * Interpreta una frase dictada ("25 mil en el Pali con la BAC", "me ingresaron 500 mil de Montevo")
@@ -16,6 +16,8 @@ export interface ParsedExpense {
   /** Personal / casa / pareja: por frase ("en pareja", "para la casa") o por el historial. */
   scope: ExpenseScope
   date: DateKey
+  /** Ingreso a futuro ("me van a pagar…" o fecha que no llegó) = programado. */
+  status: IncomeStatus
   /** Quincena según el día (para ingresos). */
   fortnight: 1 | 2
   /** Qué partes salieron de la frase (para resaltarlas en la vista previa). */
@@ -116,6 +118,8 @@ interface AmountMatch {
 /** Busca el monto en dígitos (con "mil", "k", "rojos"…) o, si no hay, en palabras. */
 function findAmount(tokens: Token[]): AmountMatch | null {
   for (let i = 0; i < tokens.length; i++) {
+    // Palabras que ya son parte de la fecha ("1 de noviembre") no son el monto.
+    if (tokens[i].used) continue
     const base = parseNumeric(tokens[i].n)
     if (base === null) continue
     tokens[i].used = true
@@ -151,6 +155,7 @@ function findAmount(tokens: Token[]): AmountMatch | null {
 
 function findWordAmount(tokens: Token[]): AmountMatch | null {
   for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].used) continue
     let total = 0
     let current = 0
     let j = i
@@ -244,16 +249,40 @@ function findCard(tokens: Token[], cards: Card[]): string | null | undefined {
   return best.id
 }
 
+const MONTH_NAMES: Record<string, number> = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8,
+  septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+}
+
+/** "hoy", "ayer", "antier", "mañana", "pasado mañana", "(el) 1 de noviembre (de 2026)". */
 function findDate(tokens: Token[], today: DateKey): DateKey | null {
-  const shift = (days: number) => {
-    const [y, m, d] = today.split('-').map(Number)
-    const dt = new Date(y, m - 1, d + days)
-    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
-  }
-  for (const t of tokens) {
+  const [ty, tm, td] = today.split('-').map(Number)
+  const fmt = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+  const shift = (days: number) => fmt(new Date(ty, tm - 1, td + days))
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (t.n === 'pasado' && tokens[i + 1]?.n === 'manana') return (t.used = tokens[i + 1].used = true), shift(2)
+    if (t.n === 'manana') return (t.used = true), shift(1)
     if (t.n === 'ayer') return (t.used = true), shift(-1)
     if (t.n === 'antier' || t.n === 'anteayer') return (t.used = true), shift(-2)
     if (t.n === 'hoy') return (t.used = true), today
+    // "1 de noviembre", "15 de octubre de 2026"
+    const day = /^\d{1,2}$/.test(t.n) ? Number(t.n) : null
+    const month = tokens[i + 1]?.n === 'de' ? MONTH_NAMES[tokens[i + 2]?.n ?? ''] : undefined
+    if (day && day <= 31 && month) {
+      let year = ty
+      let used = [i, i + 1, i + 2]
+      if (tokens[i + 3]?.n === 'de' && /^\d{4}$/.test(tokens[i + 4]?.n ?? '')) {
+        year = Number(tokens[i + 4].n)
+        used = [...used, i + 3, i + 4]
+      } else if (month < tm - 6) {
+        // "5 de enero" dicho en octubre: el de enero que viene.
+        year = ty + 1
+      }
+      if (i > 0 && tokens[i - 1].n === 'el') used.push(i - 1)
+      for (const k of used) tokens[k].used = true
+      return fmt(new Date(year, month - 1, Math.min(day, new Date(year, month, 0).getDate())))
+    }
   }
   return null
 }
@@ -304,6 +333,8 @@ export function scopeFromKeywords(text: string): ExpenseScope | undefined {
   return undefined
 }
 
+const FUTURE_INCOME = /\b(me (van|va) a (pagar|depositar|transferir|ingresar|caer)|me (pagan|depositan|transfieren)|voy a (recibir|cobrar))\b/i
+
 // Frases de tipo de gasto; se quitan antes de leer la descripción.
 const SCOPE_PATTERNS: [ExpenseScope, RegExp][] = [
   ['pareja', /\b(en pareja|a medias|compartido|entre los dos|juntos|con mi (pareja|novia|novio|esposa|esposo))\b/gi],
@@ -321,14 +352,18 @@ export function parseExpense(rawText: string, ctx: ParseContext): ParsedExpense 
     }
     re.lastIndex = 0
   }
+  // "Me van a pagar…", "me pagan…", "voy a recibir…": ingreso a futuro (programado).
+  const futureIncome = FUTURE_INCOME.test(text)
+  text = text.replace(FUTURE_INCOME, ' ')
   const tokens = tokenize(text)
   const symbolCurrency = findCurrency(tokens)
+  // La fecha va antes que el monto: en "el 1 de noviembre… 134 mil" el 1 no es el monto.
+  const date = findDate(tokens, ctx.today) ?? ctx.today
   const amount = findAmount(tokens)
   const cardId = findCard(tokens, ctx.cards)
-  const date = findDate(tokens, ctx.today) ?? ctx.today
 
   const isExpenseVerb = tokens.some((t) => EXPENSE_VERBS.has(t.n))
-  const isIncome = !isExpenseVerb && tokens.some((t) => INCOME_VERBS.has(t.n) || INCOME_NOUNS.has(t.n))
+  const isIncome = futureIncome || (!isExpenseVerb && tokens.some((t) => INCOME_VERBS.has(t.n) || INCOME_NOUNS.has(t.n)))
   for (const t of tokens) {
     if (VERBS.has(t.n) || INCOME_VERBS.has(t.n) || (isIncome && INCOME_FILLER.has(t.n))) t.used = true
   }
@@ -353,6 +388,8 @@ export function parseExpense(rawText: string, ctx: ParseContext): ParsedExpense 
       cardId,
       category: 'Ingreso',
       scope: 'personal',
+      // A futuro o con fecha que todavía no llegó: queda programado hasta confirmarlo.
+      status: futureIncome || date > ctx.today ? 'expected' : 'received',
       date,
       fortnight,
       found: { amount: !!amount, currency: !!symbolCurrency || !!amount?.currency, card: false, category: false, date: date !== ctx.today },
@@ -376,6 +413,7 @@ export function parseExpense(rawText: string, ctx: ParseContext): ParsedExpense 
     amount: amount ? Math.round(amount.value * 100) / 100 : null,
     currency,
     cardId: cardId !== undefined ? cardId : past ? past.cardId : undefined,
+    status: 'received',
     category,
     scope: spokenScope ?? past?.scope ?? scopeFromKeywords(description || text) ?? 'personal',
     date,
