@@ -2,7 +2,7 @@ import { del, get, set } from 'idb-keyval'
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
-import { currentMonth } from '../domain/dates'
+import { currentMonth, monthDiff } from '../domain/dates'
 import type { AppData, Card, CardPayment, Expense, FixedExpense, Income, Installment, MonthKey, Settings } from '../domain/types'
 
 const idbStorage: StateStorage = {
@@ -108,6 +108,39 @@ if (import.meta.env.VITE_DEMO) {
     })
   })
 }
+
+/**
+ * Los "gastos fijos" pasaron a ser pagos mensuales de tipo suscripción. Convierte los que queden
+ * con un cambio normal del store, así la sincronización sube las suscripciones y borra los fijos.
+ */
+export function migrateLegacyFixed() {
+  const { fixed } = useData.getState()
+  if (!fixed.length) return
+  useData.setState((s) => ({
+    fixed: [],
+    installments: [
+      ...s.installments,
+      ...s.fixed.map(
+        (f): Installment => ({
+          id: f.id,
+          type: 'suscripcion',
+          description: f.description,
+          total: 0,
+          monthly: f.amount,
+          currency: f.currency,
+          cardId: f.cardId,
+          months: f.endMonth ? Math.max(1, monthDiff(f.startMonth, f.endMonth) + 1) : null,
+          firstMonth: f.startMonth,
+          paidMonths: [],
+          scope: f.scope,
+        }),
+      ),
+    ],
+  }))
+}
+
+// Sin nube no hay sincronización que esperar: se convierte al cargar.
+if (!import.meta.env.VITE_SUPABASE_URL) useData.persist.onFinishHydration(() => migrateLegacyFixed())
 
 export const useUi = create<UiState>()((setState) => ({
   month: currentMonth(),

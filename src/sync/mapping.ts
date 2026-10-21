@@ -35,9 +35,9 @@ export function fromRow<C extends Collection>(collection: C, row: Row): AppData[
     if (SERVER_COLUMNS.has(k)) continue
     out[toCamel(k)] = v
   }
-  for (const k of ['amount', 'total']) if (k in out) out[k] = Number(out[k])
+  for (const k of ['amount', 'total', 'monthly']) if (k in out && out[k] !== null) out[k] = Number(out[k])
   // Columnas opcionales que vuelven como null: se quitan para que queden "ausentes" en la app.
-  for (const k of ['sourceRef', 'accountId', 'createdAt', 'balances', 'balanceAt']) if (out[k] === null) delete out[k]
+  for (const k of ['sourceRef', 'accountId', 'createdAt', 'balances', 'balanceAt', 'monthly', 'dueDay']) if (out[k] === null) delete out[k]
   if (collection === 'expenses') {
     if (out.paymentMonth === null) delete out.paymentMonth
     if (out.sourceRef === null) delete out.sourceRef

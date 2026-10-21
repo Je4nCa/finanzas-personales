@@ -259,7 +259,18 @@ export function Amounts({ items, compact }: { items: { amount: number; currency:
 const SWATCHES = ['#8f86ef', '#ffb39a', '#555a6e', '#6fd3b8', '#de8ff0', '#6fbcfd']
 export const cardSwatch = (theme: number) => SWATCHES[theme % SWATCHES.length]
 
-export function CardPicker({ cards, value, onChange }: { cards: Card[]; value: string | null; onChange: (id: string | null) => void }) {
+export function CardPicker({
+  cards,
+  value,
+  onChange,
+  nullLabel = 'Efectivo',
+}: {
+  cards: Card[]
+  value: string | null
+  onChange: (id: string | null) => void
+  /** Texto de la opción sin tarjeta. */
+  nullLabel?: string
+}) {
   return (
     <div className="choice-row">
       {cards.map((c) => (
@@ -269,7 +280,7 @@ export function CardPicker({ cards, value, onChange }: { cards: Card[]; value: s
         </button>
       ))}
       <button type="button" className={`choice ${value === null ? 'on' : ''}`} onClick={() => onChange(null)}>
-        Efectivo
+        {nullLabel}
       </button>
     </div>
   )

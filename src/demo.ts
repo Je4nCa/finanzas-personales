@@ -2,7 +2,7 @@ import { addMonths, currentMonth } from './domain/dates'
 import type { AppData } from './domain/types'
 
 /** Subir este número hace que la vista previa recargue los ejemplos. */
-export const DEMO_VERSION = 4
+export const DEMO_VERSION = 5
 
 /** Datos de ejemplo para la vista previa (artifact); nunca se cargan en la app instalada. */
 export function demoData(): AppData {
@@ -24,13 +24,13 @@ export function demoData(): AppData {
       { id: 'e7', description: 'Apple iCloud', amount: 2.99, currency: 'USD', date: d(prev, 9), cardId: 'c1', category: 'Ocio' },
       { id: 'e8', description: 'PlayStation Store', amount: 69.99, currency: 'USD', date: d(prev, 16), cardId: 'c2', category: 'Ocio' },
     ],
-    fixed: [
-      { id: 'f1', description: 'Netflix', amount: 15.49, currency: 'USD', cardId: 'c1', startMonth: addMonths(m, -9), endMonth: null },
-      { id: 'f2', description: 'Internet Kölbi', amount: 24900, currency: 'CRC', cardId: 'c2', startMonth: addMonths(m, -9), endMonth: null, scope: 'casa' },
-      { id: 'f4', description: 'Claude Pro', amount: 20, currency: 'USD', cardId: 'c1', startMonth: addMonths(m, -3), endMonth: null },
-      { id: 'f3', description: 'Spotify', amount: 5.99, currency: 'USD', cardId: 'c1', startMonth: addMonths(m, -7), endMonth: null },
-    ],
+    fixed: [],
     installments: [
+      { id: 'f1', type: 'suscripcion', description: 'Netflix', total: 0, monthly: 15.49, currency: 'USD', cardId: 'c1', months: null, firstMonth: addMonths(m, -9), paidMonths: [] },
+      { id: 'f2', type: 'suscripcion', description: 'Internet Kölbi', total: 0, monthly: 24900, currency: 'CRC', cardId: 'c2', months: null, firstMonth: addMonths(m, -9), paidMonths: [], scope: 'casa' },
+      { id: 'f4', type: 'suscripcion', description: 'Claude Pro', total: 0, monthly: 20, currency: 'USD', cardId: 'c1', months: null, firstMonth: addMonths(m, -3), paidMonths: [] },
+      { id: 'f3', type: 'suscripcion', description: 'Spotify', total: 0, monthly: 5.99, currency: 'USD', cardId: 'c1', months: null, firstMonth: addMonths(m, -7), paidMonths: [] },
+      { id: 'l1', type: 'prestamo', description: 'Crédito del carro', total: 4500000, monthly: 150000, currency: 'CRC', cardId: null, months: 30, firstMonth: addMonths(m, -6), dueDay: 15, paidMonths: [1, 2, 3, 4, 5, 6].map((k) => addMonths(m, -k)) },
       { id: 'i1', description: 'iPhone 17', total: 1199, currency: 'USD', cardId: 'c1', months: 12, firstMonth: addMonths(m, -4), paidMonths: [1, 2, 3, 4].map((k) => addMonths(m, -k)) },
       { id: 'i2', description: 'Refrigeradora', total: 540000, currency: 'CRC', cardId: 'c2', months: 6, firstMonth: addMonths(m, -1), paidMonths: [addMonths(m, -1)], scope: 'casa' },
     ],

@@ -1,9 +1,9 @@
 import { cardLabel } from '../domain/cards'
 import { monthLabel, monthOf } from '../domain/dates'
-import { cardSummaries, chargesForMonth, installmentIndex, monthBalance } from '../domain/finance'
+import { cardSummaries, chargesForMonth, installmentAmount, installmentIndex, monthBalance, RECURRING_LABEL } from '../domain/finance'
 import type { AppData, MonthKey } from '../domain/types'
 
-const KIND_LABEL = { variable: 'Variable', fijo: 'Fijo', cuota: 'Tasa cero' } as const
+const KIND_LABEL = { variable: 'Variable', fijo: 'Fijo', cuota: 'Pago mensual' } as const
 
 /** Genera y descarga el reporte del mes. exceljs se carga solo al exportar. */
 export async function exportMonthToExcel(data: AppData, month: MonthKey) {
@@ -114,21 +114,28 @@ export async function exportMonthToExcel(data: AppData, month: MonthKey) {
   }
   style(ab)
 
-  // Tasa cero
-  const tc = wb.addWorksheet('Tasa cero')
+  // Pagos mensuales (préstamos, tasa cero, suscripciones)
+  const tc = wb.addWorksheet('Pagos mensuales')
   tc.columns = [
-    { header: 'Producto', width: 28 },
-    { header: 'Tarjeta', width: 22 },
-    { header: 'Total', width: 16 },
-    { header: 'Cuotas', width: 10 },
-    { header: 'Cuota este mes', width: 14 },
+    { header: 'Nombre', width: 28 },
+    { header: 'Tipo', width: 14 },
+    { header: 'Con qué se paga', width: 22 },
+    { header: 'Cuota del mes', width: 16 },
+    { header: 'Cuota', width: 12 },
     { header: 'Estado', width: 12 },
   ]
   for (const i of data.installments) {
     const idx = installmentIndex(i, month)
     if (idx < 0) continue
-    const row = tc.addRow([i.description, cardName(i.cardId), i.total, i.months, `${idx + 1}/${i.months}`, i.paidMonths.includes(month) ? 'Pagada' : 'Pendiente'])
-    row.getCell(3).numFmt = money(i.currency)
+    const row = tc.addRow([
+      i.description,
+      RECURRING_LABEL[i.type ?? 'tasa_cero'],
+      cardName(i.cardId),
+      installmentAmount(i, idx),
+      i.months == null ? 'Sin fin' : `${idx + 1}/${i.months}`,
+      i.paidMonths.includes(month) ? 'Pagada' : 'Pendiente',
+    ])
+    row.getCell(4).numFmt = money(i.currency)
   }
   style(tc)
 

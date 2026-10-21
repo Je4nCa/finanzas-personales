@@ -16,7 +16,7 @@ const TABS: { id: Tab; label: string; icon: typeof House }[] = [
   { id: 'inicio', label: 'Inicio', icon: House },
   { id: 'movimientos', label: 'Registro', icon: ReceiptText },
   { id: 'pagos', label: 'Pagos', icon: CreditCard },
-  { id: 'tasacero', label: 'Tasa cero', icon: CalendarClock },
+  { id: 'tasacero', label: 'Mensuales', icon: CalendarClock },
   { id: 'tarjetas', label: 'Tarjetas', icon: Wallet },
 ]
 

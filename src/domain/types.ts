@@ -80,14 +80,29 @@ export interface FixedExpense {
   scope?: ExpenseScope
 }
 
-/** Financiamiento a tasa cero: cuotas iguales mes a mes. */
+/** Tipo de pago mensual. */
+export type RecurringType = 'prestamo' | 'tasa_cero' | 'suscripcion' | 'otro'
+
+/**
+ * Pago mensual: préstamo/crédito, tasa cero, suscripción u otro.
+ * Tasa cero reparte `total` en `months` cuotas; los demás usan `monthly` (la cuota fija).
+ */
 export interface Installment {
   id: string
+  /** Ausente = tasa cero (los registros anteriores lo eran). */
+  type?: RecurringType
   description: string
+  /** Monto total (tasa cero). En los demás tipos se calcula o queda en 0 si no tiene fin. */
   total: number
+  /** Cuota mensual fija (préstamos, suscripciones). */
+  monthly?: number | null
   currency: Currency
+  /** Tarjeta (crédito o débito) o cuenta con que se paga; null = pago directo. */
   cardId: string | null
-  months: number
+  /** Cantidad de cuotas; null = sin fin (suscripciones). */
+  months: number | null
+  /** Día del mes en que vence (pagos que no son con tarjeta de crédito). */
+  dueDay?: number | null
   /** Mes de pago de la primera cuota. */
   firstMonth: MonthKey
   /** Meses de pago cuya cuota ya se marcó como pagada. */

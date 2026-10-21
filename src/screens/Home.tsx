@@ -1,4 +1,4 @@
-import { ArrowDownLeft, CalendarClock, HandCoins, Plus, Receipt, Repeat, ShoppingBag, Wallet } from 'lucide-react'
+import { ArrowDownLeft, HandCoins, Plus, Receipt, Repeat, ShoppingBag, Wallet } from 'lucide-react'
 import { useMemo } from 'react'
 import { amountsFor, cardCurrency } from '../domain/cards'
 import { addMonths, dayInMonthLabel, monthShort } from '../domain/dates'
@@ -20,8 +20,7 @@ export function budgetStatus(usage: number): { label: string; tone: 'green' | 'a
 
 const ACTIONS: { kind: SheetKind; label: string; icon: typeof Plus; preset?: Record<string, unknown> }[] = [
   { kind: 'quick', label: 'Gasto', icon: ShoppingBag },
-  { kind: 'fixed', label: 'Fijo', icon: Repeat },
-  { kind: 'installment', label: 'Tasa cero', icon: CalendarClock },
+  { kind: 'installment', label: 'Mensual', icon: Repeat },
   { kind: 'quick', label: 'Ingreso', icon: ArrowDownLeft, preset: { kind: 'income' } },
   { kind: 'payment', label: 'Abono', icon: HandCoins },
 ]

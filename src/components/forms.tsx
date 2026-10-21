@@ -1,9 +1,9 @@
 import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { addMonths, currentMonth, dateLabel, monthLabel, parseDate, todayKey } from '../domain/dates'
+import { addMonths, currentMonth, dateLabel, monthDiff, monthLabel, parseDate, todayKey } from '../domain/dates'
 import { cardLabel, CURRENCY_LABEL, defaultAccount, fixedCurrency, isCredit, KIND_LABEL } from '../domain/cards'
-import { formatMoney, paymentMonthFor } from '../domain/finance'
-import type { Card, CardBank, CardCurrency, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment } from '../domain/types'
+import { formatMoney, paymentMonthFor, RECURRING_LABEL } from '../domain/finance'
+import type { Card, CardBank, CardCurrency, CardKind, CardNetwork, CardPayment, Currency, ExpenseScope, Expense, FixedExpense, Income, Installment, RecurringType } from '../domain/types'
 import { newId, useData, useUi } from '../store/store'
 import { useOverlay, type SheetState } from '../store/ui'
 import { AccountPicker, cardSwatch, CardPicker, Field, MoneyInput, ScopePicker, Segmented, Sheet } from './ui'
@@ -215,78 +215,136 @@ function FixedForm({ id, preset }: SheetState) {
   )
 }
 
-/* ---------------- Tasa cero ---------------- */
+/* ---------------- Pagos mensuales ---------------- */
 
 const TERM_OPTIONS = [3, 6, 10, 12, 18, 24, 36]
 
+const TYPE_COPY: Record<RecurringType, { amount: string; name: string; months: string }> = {
+  prestamo: { amount: 'Cuota mensual', name: 'Ej. Crédito del carro, préstamo personal', months: 'Cuotas que faltan' },
+  tasa_cero: { amount: 'Monto total del producto', name: 'Ej. iPhone, refrigeradora…', months: 'Plazo (meses)' },
+  suscripcion: { amount: 'Monto mensual', name: 'Ej. Netflix, Spotify, gimnasio', months: '' },
+  otro: { amount: 'Monto mensual', name: 'Ej. Seguro, cuota del colegio', months: 'Cuántos meses (vacío = sin fin)' },
+}
+
 function InstallmentForm({ id, preset }: SheetState) {
   const { installments, cards, upsert, remove, settings } = useData()
+  const month = useUi((s) => s.month)
   const existing = installments.find((i) => i.id === id)
+  const [type, setType] = useState<RecurringType>(existing?.type ?? (preset?.type as RecurringType) ?? 'prestamo')
+  const isTasaCero = type === 'tasa_cero'
   const [description, setDescription] = useState(existing?.description ?? '')
-  const [amount, setAmount] = useState(existing ? String(existing.total) : '')
+  const [amount, setAmount] = useState(existing ? String(existing.monthly ?? existing.total) : '')
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? settings.baseCurrency)
-  const [cardId, setCardId] = useState<string | null>(existing ? existing.cardId : ((preset?.cardId as string) ?? cards[0]?.id ?? null))
-  const [months, setMonths] = useState(String(existing?.months ?? 12))
+  const [cardId, setCardId] = useState<string | null>(existing ? existing.cardId : ((preset?.cardId as string) ?? null))
+  const [months, setMonths] = useState(existing ? (existing.months == null ? '' : String(existing.months)) : '12')
+  const [dueDay, setDueDay] = useState(existing?.dueDay ? String(existing.dueDay) : '')
+  const [endMonth, setEndMonth] = useState(existing?.type === 'suscripcion' && existing.months != null ? addMonths(existing.firstMonth, existing.months - 1) : '')
   const [scope, setScope] = useState<ExpenseScope>(existing?.scope ?? 'personal')
   const card = cards.find((c) => c.id === cardId)
-  const [firstMonth, setFirstMonth] = useState(existing?.firstMonth ?? (card ? paymentMonthFor(card, todayKey()) : currentMonth()))
+  const [firstMonth, setFirstMonth] = useState(existing?.firstMonth ?? (card && isCredit(card) ? paymentMonthFor(card, todayKey()) : month))
   const lockCur = fixedCurrency(card)
   const cur = lockCur ?? currency
   const n = parseAmount(amount)
-  const m = parseInt(months, 10)
-  const validMonths = Number.isInteger(m) && m >= 1 && m <= 120
+  // Suscripción: sin fin, o hasta el mes indicado. Otro: meses opcionales. Préstamo y tasa cero: obligatorios.
+  const m = type === 'suscripcion' ? (endMonth ? monthDiff(firstMonth, endMonth) + 1 : null) : months.trim() === '' && type === 'otro' ? null : parseInt(months, 10)
+  const validMonths = m === null || (Number.isInteger(m) && m >= 1 && m <= 360)
+  const dd = dueDay ? parseInt(dueDay, 10) : null
+  const validDay = dd === null || (dd >= 1 && dd <= 31)
+  const copy = TYPE_COPY[type]
+  const payWithCredit = !!card && isCredit(card)
 
   return (
     <FormShell
-      title={existing ? 'Editar tasa cero' : 'Nueva tasa cero'}
-      valid={!!n && !!description.trim() && validMonths && !!firstMonth}
+      title={existing ? `Editar ${RECURRING_LABEL[type].toLowerCase()}` : 'Nuevo pago mensual'}
+      valid={!!n && !!description.trim() && validMonths && validDay && !!firstMonth}
       onDelete={existing && (() => remove('installments', existing.id))}
       onSubmit={() =>
         upsert('installments', {
+          ...existing,
           id: existing?.id ?? newId(),
+          type,
           description: description.trim(),
-          total: n!,
+          // Tasa cero guarda el total y reparte; el resto guarda la cuota (y el total si tiene fin).
+          total: isTasaCero ? n! : m ? Math.round(n! * m * 100) / 100 : 0,
+          monthly: isTasaCero ? null : n!,
           currency: cur,
           cardId,
           months: m,
           firstMonth,
+          dueDay: payWithCredit ? null : dd,
           paidMonths: existing?.paidMonths ?? [],
           scope,
         } satisfies Installment)
       }
     >
-      <Field label="Monto total del producto">
+      <Segmented
+        value={type}
+        onChange={setType}
+        options={(['prestamo', 'tasa_cero', 'suscripcion', 'otro'] as RecurringType[]).map((t) => ({ value: t, label: t === 'prestamo' ? 'Crédito' : t === 'otro' ? 'Otro' : RECURRING_LABEL[t] }))}
+      />
+      <Field label={copy.amount}>
         <MoneyInput amount={amount} currency={cur} locked={!!lockCur} onAmount={setAmount} onCurrency={setCurrency} autoFocus={!existing} />
       </Field>
-      <Field label="Producto">
-        <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. iPhone, refrigeradora…" />
+      <Field label="Nombre">
+        <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={copy.name} />
       </Field>
-      <Field label="Plazo (meses)">
-        <div className="choice-row">
-          {TERM_OPTIONS.map((t) => (
-            <button key={t} type="button" className={`choice ${m === t ? 'on' : ''}`} onClick={() => setMonths(String(t))}>
-              {t}
-            </button>
-          ))}
-          <input className="input" style={{ width: 80, height: 40, flex: 'none' }} inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value.replace(/\D/g, ''))} />
-        </div>
-      </Field>
-      {n && validMonths && <Hint>Cuota mensual: {formatMoney(n / m, cur)}</Hint>}
-      <Field label="Tarjeta">
+      {type !== 'suscripcion' && (
+        <Field label={copy.months}>
+          <div className="choice-row">
+            {isTasaCero &&
+              TERM_OPTIONS.map((t) => (
+                <button key={t} type="button" className={`choice ${m === t ? 'on' : ''}`} onClick={() => setMonths(String(t))}>
+                  {t}
+                </button>
+              ))}
+            <input
+              className="input"
+              style={{ width: isTasaCero ? 80 : 140, height: 40, flex: 'none' }}
+              inputMode="numeric"
+              value={months}
+              placeholder={type === 'otro' ? 'Sin fin' : 'Ej. 36'}
+              onChange={(e) => setMonths(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+        </Field>
+      )}
+      {n && isTasaCero && m && <Hint>Cuota mensual: {formatMoney(n / m, cur)}</Hint>}
+      {n && !isTasaCero && m && <Hint>Te falta pagar {formatMoney(n * m, cur)} en {m} cuotas</Hint>}
+      <Field label="¿Con qué lo pagás?">
         <CardPicker
           cards={cards}
           value={cardId}
+          nullLabel="Directo / transferencia"
           onChange={(cid) => {
             setCardId(cid)
             const c = cards.find((x) => x.id === cid)
-            if (!existing && c) setFirstMonth(paymentMonthFor(c, todayKey()))
+            if (!existing && c && isCredit(c)) setFirstMonth(paymentMonthFor(c, todayKey()))
           }}
         />
       </Field>
-      <Field label="Mes de pago de la primera cuota">
-        <input className="input" type="month" value={firstMonth} onChange={(e) => setFirstMonth(e.target.value)} />
-      </Field>
-      {validMonths && firstMonth && <Hint>Última cuota: {monthLabel(addMonths(firstMonth, m - 1))}</Hint>}
+      {card && !isCredit(card) && <Hint>Al marcar cada cuota como pagada se descuenta del disponible de {cardLabel(card)}.</Hint>}
+      <div className="grid-2">
+        <Field label={payWithCredit ? 'Primer mes de pago' : 'Desde (mes)'}>
+          <input className="input" type="month" value={firstMonth} onChange={(e) => setFirstMonth(e.target.value)} />
+        </Field>
+        {type === 'suscripcion' ? (
+          <Field label="Hasta (opcional)">
+            <input className="input" type="month" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} />
+          </Field>
+        ) : (
+          !payWithCredit && (
+            <Field label="Día de pago (opcional)">
+              <input className="input num" inputMode="numeric" value={dueDay} onChange={(e) => setDueDay(e.target.value.replace(/\D/g, ''))} placeholder="15" />
+            </Field>
+          )
+        )}
+      </div>
+      {type === 'suscripcion' && !payWithCredit && (
+        <Field label="Día de cobro (opcional)">
+          <input className="input num" inputMode="numeric" value={dueDay} onChange={(e) => setDueDay(e.target.value.replace(/\D/g, ''))} placeholder="1" />
+        </Field>
+      )}
+      {m && firstMonth && type !== 'suscripcion' && <Hint>Última cuota: {monthLabel(addMonths(firstMonth, m - 1))}</Hint>}
       <Field label="Tipo de gasto">
         <ScopePicker value={scope} onChange={setScope} />
       </Field>

@@ -1,6 +1,6 @@
 import { FileUp, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { dateLabel, monthLabel, monthOf } from '../domain/dates'
+import { dateLabel, monthOf } from '../domain/dates'
 import { sumByCurrency, toBase } from '../domain/finance'
 import { cardLabel } from '../domain/cards'
 import type { Card, ExpenseScope } from '../domain/types'
@@ -9,7 +9,7 @@ import { cardSwatch, Empty, Money, MonthNav, SCOPES, Segmented } from '../compon
 import { useOverlay } from '../store/ui'
 import { useMonthView } from '../store/useMonth'
 
-type View = 'gastos' | 'fijos' | 'ingresos'
+type View = 'gastos' | 'ingresos'
 
 export function Movements() {
   const [view, setView] = useState<View>('gastos')
@@ -21,12 +21,10 @@ export function Movements() {
         onChange={setView}
         options={[
           { value: 'gastos', label: 'Gastos' },
-          { value: 'fijos', label: 'Fijos' },
           { value: 'ingresos', label: 'Ingresos' },
         ]}
       />
       {view === 'gastos' && <Expenses />}
-      {view === 'fijos' && <Fixed />}
       {view === 'ingresos' && <Incomes />}
     </>
   )
@@ -106,53 +104,6 @@ function Expenses() {
       <button className="pill-btn glass block import-btn" onClick={() => open({ kind: 'import' })}>
         <FileUp /> Importar estado de cuenta (PDF)
       </button>
-    </>
-  )
-}
-
-function Fixed() {
-  const { data, month } = useMonthView()
-  const open = useOverlay((s) => s.open)
-  const cardById = new Map(data.cards.map((c) => [c.id, c]))
-  const isActive = (f: (typeof data.fixed)[number]) => f.startMonth <= month && (!f.endMonth || f.endMonth >= month)
-  const list = [...data.fixed].sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || a.description.localeCompare(b.description))
-  const total = toBase(sumByCurrency(list.filter(isActive)), data.settings)
-
-  return (
-    <>
-      <div className="card">
-        <div className="card-head">
-          <span className="title">Gastos fijos mensuales</span>
-          <span className="num" style={{ fontWeight: 600 }}><Money amount={total} currency={data.settings.baseCurrency} compact /></span>
-        </div>
-        {list.length === 0 ? (
-          <Empty text="Agregá tus suscripciones y servicios: Netflix, internet, gimnasio…" />
-        ) : (
-          <div className="list">
-            {list.map((f) => {
-              const active = isActive(f)
-              return (
-                <button key={f.id} className="list-item" onClick={() => open({ kind: 'fixed', id: f.id })} style={{ opacity: active ? 1 : 0.5 }}>
-                  <ExpenseIcon description={f.description} />
-                  <div className="li-main">
-                    <div className="li-title">{f.description}</div>
-                    <div className="li-sub">
-                      <CardTag card={f.cardId ? cardById.get(f.cardId) : undefined} />
-                      {f.endMonth ? <span>· hasta {monthLabel(f.endMonth)}</span> : null}
-                      {!active && <span className="chip">{f.startMonth > month ? 'Aún no inicia' : 'Terminado'}</span>}
-                    </div>
-                  </div>
-                  <div className="li-amount">
-                    <Money amount={f.amount} currency={f.currency} />
-                    <small>al mes</small>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-      <AddButton label="Agregar gasto fijo" onClick={() => open({ kind: 'fixed' })} />
     </>
   )
 }

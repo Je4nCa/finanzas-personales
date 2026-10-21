@@ -40,3 +40,16 @@ describe('disponible de cuentas y débito', () => {
     expect(b.CRC).toBe(300000 + 50000 - 3000 - 5000)
   })
 })
+
+describe('pagos mensuales desde una cuenta', () => {
+  it('al marcar pagada la cuota de un préstamo se descuenta del disponible', () => {
+    const at = new Date(2026, 9, 1, 9, 0).toISOString()
+    const c = { ...card, balances: { CRC: 500000 }, balanceAt: at }
+    const prestamo = {
+      id: 'p', type: 'prestamo' as const, description: 'Crédito personal', total: 0, monthly: 150000, currency: 'CRC' as const,
+      cardId: 'w', months: 24, firstMonth: '2026-09', dueDay: 15, paidMonths: ['2026-09', '2026-10'],
+    }
+    // Septiembre ya estaba incluido en el saldo fijado el 1 de octubre; octubre (día 15) se descuenta.
+    expect(accountBalance({ incomes: [], expenses: [], installments: [prestamo] }, c).CRC).toBe(350000)
+  })
+})

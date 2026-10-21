@@ -1,4 +1,5 @@
-import type { ByCurrency } from './finance'
+import { clampDay } from './dates'
+import { installmentAmount, installmentIndex, type ByCurrency } from './finance'
 import type { AppData } from './types'
 import type { Card, CardCurrency, CardKind, Currency } from './types'
 
@@ -46,14 +47,25 @@ function afterAnchor(date: string, createdAt: string | null | undefined, anchor:
   return !!createdAt && createdAt > anchor
 }
 
-/** Disponible de una tarjeta de débito o cuenta: saldo fijado + ingresos − gastos posteriores. */
-export function accountBalance(data: Pick<AppData, 'expenses' | 'incomes'>, card: Card): ByCurrency {
+/** Disponible de una tarjeta de débito o cuenta: saldo fijado + ingresos − gastos y pagos mensuales posteriores. */
+export function accountBalance(data: Pick<AppData, 'expenses' | 'incomes'> & Partial<Pick<AppData, 'installments'>>, card: Card): ByCurrency {
   const t: ByCurrency = { CRC: card.balances?.CRC ?? 0, USD: card.balances?.USD ?? 0 }
   for (const i of data.incomes) {
     if (i.accountId === card.id && afterAnchor(i.date, i.createdAt, card.balanceAt)) t[i.currency] += i.amount
   }
   for (const e of data.expenses) {
     if (e.cardId === card.id && afterAnchor(e.date, e.createdAt, card.balanceAt)) t[e.currency] -= e.amount
+  }
+  // Pagos mensuales con esta cuenta: restan al marcarlos pagados, en su día de vencimiento.
+  for (const inst of data.installments ?? []) {
+    if (inst.cardId !== card.id) continue
+    for (const m of inst.paidMonths) {
+      const i = installmentIndex(inst, m)
+      if (i < 0) continue
+      const [y, mo] = m.split('-').map(Number)
+      const day = String(clampDay(y, mo, inst.dueDay ?? 1)).padStart(2, '0')
+      if (afterAnchor(`${m}-${day}`, null, card.balanceAt)) t[inst.currency] -= installmentAmount(inst, i)
+    }
   }
   return { CRC: Math.round(t.CRC * 100) / 100, USD: Math.round(t.USD * 100) / 100 }
 }

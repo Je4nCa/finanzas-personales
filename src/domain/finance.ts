@@ -21,17 +21,36 @@ export function convert(amount: number, from: Currency, to: Currency, rate: numb
   return from === 'USD' ? amount * rate : amount / rate
 }
 
-/** Monto de la cuota n (0-based); la última absorbe el redondeo. */
+/** Monto de la cuota n (0-based). Con cuota fija es siempre la misma; tasa cero reparte el total y la última absorbe el redondeo. */
 export function installmentAmount(inst: Installment, index: number): number {
-  const base = Math.floor((inst.total / inst.months) * 100) / 100
-  if (index < inst.months - 1) return base
-  return Math.round((inst.total - base * (inst.months - 1)) * 100) / 100
+  if (inst.monthly != null) return inst.monthly
+  const months = inst.months ?? 1
+  const base = Math.floor((inst.total / months) * 100) / 100
+  if (index < months - 1) return base
+  return Math.round((inst.total - base * (months - 1)) * 100) / 100
 }
 
-/** Índice de la cuota que cae en el mes, o -1 si no aplica. */
+/** Índice de la cuota que cae en el mes, o -1 si no aplica (sin fin = desde el primer mes en adelante). */
 export function installmentIndex(inst: Installment, month: MonthKey): number {
   const i = monthDiff(inst.firstMonth, month)
-  return i >= 0 && i < inst.months ? i : -1
+  return i >= 0 && (inst.months == null || i < inst.months) ? i : -1
+}
+
+/** Lo que falta pagar (cuotas no marcadas). Los pagos sin fin no tienen deuda pendiente. */
+export function remainingDebt(inst: Installment): number {
+  if (inst.months == null) return 0
+  let t = 0
+  for (let i = 0; i < inst.months; i++) {
+    if (!inst.paidMonths.includes(addMonths(inst.firstMonth, i))) t += installmentAmount(inst, i)
+  }
+  return Math.round(t * 100) / 100
+}
+
+export const RECURRING_LABEL: Record<NonNullable<Installment['type']>, string> = {
+  prestamo: 'Préstamo',
+  tasa_cero: 'Tasa cero',
+  suscripcion: 'Suscripción',
+  otro: 'Pago mensual',
 }
 
 export type ChargeKind = 'variable' | 'fijo' | 'cuota'
@@ -96,7 +115,7 @@ export function chargesForMonth(data: AppData, month: MonthKey): Charge[] {
       amount: installmentAmount(inst, i),
       currency: inst.currency,
       cardId: inst.cardId && cardById.has(inst.cardId) ? inst.cardId : null,
-      detail: `${i + 1}/${inst.months}`,
+      detail: inst.months == null ? RECURRING_LABEL[inst.type ?? 'tasa_cero'] : `${i + 1}/${inst.months}`,
       scope: inst.scope ?? 'personal',
     })
   }

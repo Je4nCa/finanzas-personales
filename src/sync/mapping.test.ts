@@ -24,6 +24,13 @@ describe('mapeo de filas', () => {
   })
 })
 
+describe('pagos mensuales', () => {
+  it('suscripción sin fin: monthly numérico, months null, sin due_day', () => {
+    const row = { id: 's', type: 'suscripcion', description: 'Netflix', total: '0.00', monthly: '15.49', currency: 'USD', card_id: null, months: null, first_month: '2026-01', due_day: null, paid_months: [], user_id: 'u', updated_at: 'x', deleted_at: null }
+    expect(fromRow('installments', row)).toEqual({ id: 's', type: 'suscripcion', description: 'Netflix', total: 0, monthly: 15.49, currency: 'USD', cardId: null, months: null, firstMonth: '2026-01', paidMonths: [] })
+  })
+})
+
 describe('diff', () => {
   it('detecta altas, ediciones y bajas', () => {
     const a = emptyData()

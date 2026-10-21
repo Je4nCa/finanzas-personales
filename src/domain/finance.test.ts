@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { amountsFor, fixedCurrency } from './cards'
+import { installmentIndex, remainingDebt } from './finance'
 import { cardSummaries, chargesForMonth, installmentAmount, monthBalance, paymentMonthFor } from './finance'
 import type { AppData } from './types'
 
@@ -98,5 +99,21 @@ describe('resumen del mes', () => {
     expect(b.expenses).toBe(100000)
     expect(b.free).toBe(400000)
     expect(b.usage).toBeCloseTo(0.2)
+  })
+})
+
+describe('pagos mensuales', () => {
+  const base = { id: 'x', description: 'x', total: 0, currency: 'CRC' as const, cardId: null, paidMonths: [] as string[] }
+  it('préstamo con cuota fija: misma cuota y deuda = cuotas pendientes', () => {
+    const p = { ...base, type: 'prestamo' as const, monthly: 150000, months: 3, firstMonth: '2026-10', paidMonths: ['2026-10'] }
+    expect([0, 1, 2].map((i) => installmentAmount(p, i))).toEqual([150000, 150000, 150000])
+    expect(remainingDebt(p)).toBe(300000)
+    expect(installmentIndex(p, '2027-01')).toBe(-1)
+  })
+  it('suscripción sin fin: aplica todos los meses desde el inicio y no es deuda', () => {
+    const s = { ...base, type: 'suscripcion' as const, monthly: 15.49, currency: 'USD' as const, months: null, firstMonth: '2026-01' }
+    expect(installmentIndex(s, '2030-06')).toBeGreaterThan(0)
+    expect(installmentIndex(s, '2025-12')).toBe(-1)
+    expect(remainingDebt(s)).toBe(0)
   })
 })

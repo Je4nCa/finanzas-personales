@@ -1,7 +1,7 @@
 import { createClient, type Session } from '@supabase/supabase-js'
 import { get as idbGet, set as idbSet } from 'idb-keyval'
 import type { AppData } from '../domain/types'
-import { emptyData, selectData, useData } from '../store/store'
+import { emptyData, migrateLegacyFixed, selectData, useData } from '../store/store'
 import { COLLECTIONS, diff, fromRow, settingsChanged, settingsFromRow, settingsToRow, TABLES, toRow, type Change, type Collection } from './mapping'
 import { useSyncStatus } from './status'
 
@@ -209,6 +209,9 @@ export async function startSync() {
       if (session) scheduleSync()
     }
   })
+
+  // Con la cola ya escuchando, los fijos viejos se convierten en suscripciones y se sincronizan.
+  migrateLegacyFixed()
 
   const { data } = await supabase.auth.getSession()
   session = data.session
