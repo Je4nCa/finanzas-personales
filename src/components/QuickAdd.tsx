@@ -20,8 +20,20 @@ type Recognition = {
   onerror: ((e: { error: string }) => void) | null
   onend: (() => void) | null
 }
-const SpeechRecognitionCtor: (new () => Recognition) | undefined =
-  typeof window !== 'undefined' ? ((window as never)['SpeechRecognition'] ?? (window as never)['webkitSpeechRecognition']) : undefined
+const getRecognition = (): (new () => Recognition) | undefined =>
+  (window as never)['SpeechRecognition'] ?? (window as never)['webkitSpeechRecognition']
+
+const VOICE_LANGS = ['es-CR', 'es-419', 'es-MX', 'es-ES']
+
+const KEYBOARD = 'Usá el dictado del teclado en el campo de texto.'
+const VOICE_ERRORS: Record<string, string> = {
+  'no-speech': 'No escuché nada. Probá otra vez.',
+  'not-allowed': `El navegador o el sistema bloqueó el micrófono. Revisá el permiso del sitio y, en Mac, Ajustes del Sistema → Privacidad → Micrófono. ${KEYBOARD}`,
+  'service-not-allowed': `El reconocimiento de voz está apagado en este navegador. En Mac/iPhone activá Dictado en Ajustes → Teclado. ${KEYBOARD}`,
+  network: `Este navegador no tiene servicio de reconocimiento de voz (pasa en Brave, Arc y otros). Probá en Safari o Chrome. ${KEYBOARD}`,
+  'audio-capture': `No encontré ningún micrófono conectado. ${KEYBOARD}`,
+  'language-not-supported': `Este navegador no reconoce español. ${KEYBOARD}`,
+}
 
 const EXAMPLES = ['25 mil en el súper con la BAC', 'Uber 4800 ayer', 'Amazon $64.99 con la Mastercard', 'almuerzo 6500 en efectivo']
 
@@ -52,17 +64,19 @@ export function QuickAdd({ preset }: SheetState) {
   const valid = amount > 0 && !!description.trim()
   const card = cards.find((c) => c.id === cardId)
 
-  const startVoice = () => {
+  const startVoice = (langIndex = 0) => {
     setVoiceError(null)
+    const SpeechRecognitionCtor = getRecognition()
     if (!SpeechRecognitionCtor) {
-      setVoiceError('Tocá el campo de texto y usá el micrófono del teclado para dictar.')
+      setVoiceError('Este navegador no tiene reconocimiento de voz. Tocá el campo de texto y usá el dictado del teclado.')
       inputRef.current?.focus()
       return
     }
     const rec = new SpeechRecognitionCtor()
-    rec.lang = 'es-CR'
+    rec.lang = VOICE_LANGS[langIndex]
     rec.interimResults = true
     rec.continuous = false
+    let retry = false
     rec.onresult = (e) => {
       const t = Array.from(e.results)
         .map((r) => r[0].transcript)
@@ -71,11 +85,20 @@ export function QuickAdd({ preset }: SheetState) {
       setOver({})
     }
     rec.onerror = (e) => {
+      // Si el navegador no tiene español de Costa Rica, se prueba la siguiente variante.
+      if (e.error === 'language-not-supported' && langIndex + 1 < VOICE_LANGS.length) {
+        retry = true
+        return
+      }
       setListening(false)
-      if (e.error === 'no-speech') setVoiceError('No escuché nada. Probá otra vez.')
-      else if (e.error !== 'aborted') setVoiceError('El micrófono no está disponible aquí. Usá el micrófono del teclado para dictar.')
+      if (e.error === 'aborted') return
+      setVoiceError(`${VOICE_ERRORS[e.error] ?? 'No se pudo usar el reconocimiento de voz.'} (${e.error})`)
+      if (e.error !== 'no-speech') inputRef.current?.focus()
     }
-    rec.onend = () => setListening(false)
+    rec.onend = () => {
+      if (retry) startVoice(langIndex + 1)
+      else setListening(false)
+    }
     recRef.current = rec
     try {
       rec.start()
@@ -117,7 +140,7 @@ export function QuickAdd({ preset }: SheetState) {
     <Sheet title="Gasto rápido" onClose={close}>
       <div className="form">
         <div className="voice">
-          <button className={`mic ${listening ? 'on' : ''}`} onClick={listening ? stopVoice : startVoice} aria-label={listening ? 'Detener' : 'Dictar gasto'}>
+          <button className={`mic ${listening ? 'on' : ''}`} onClick={() => (listening ? stopVoice() : startVoice())} aria-label={listening ? 'Detener' : 'Dictar gasto'}>
             <span className="mic-ring" />
             <span className="mic-ring delay" />
             <span className="mic-core">{listening ? <Square /> : <Mic />}</span>
