@@ -1,6 +1,6 @@
 # Finanzas Personales
 
-PWA móvil para controlar gastos por tarjeta y **mes de pago** (no por fecha de compra). React + TypeScript + Vite. Los datos se guardan solo en el teléfono (IndexedDB).
+PWA para controlar gastos por tarjeta y **mes de pago** (no por fecha de compra). React + TypeScript + Vite. Los datos se guardan en el dispositivo (IndexedDB) y, con sesión iniciada, se sincronizan con Supabase entre iPhone y Mac.
 
 ## Comandos
 
@@ -33,3 +33,13 @@ npm run build:artifact  # vista previa para artifact de Claude (rutas relativas,
 ## Atajo de iOS
 
 Abrir la app con `?gasto=<texto>` abre el gasto rápido ya interpretado. Un Atajo de iOS con "Dictar texto" → "Abrir URL" (`https://je4nca.github.io/finanzas-personales/?gasto=` + texto dictado) permite registrar gastos con Siri.
+
+## Supabase
+
+Proyecto `uorihhnvmpdczcwwhojw` ("Finanzas Personales", us-west-2), administrado con la CLI (`supabase login`).
+
+- Esquema: `supabase/migrations/20261021000000_init.sql` (tablas, RLS, triggers). Se aplicó con `supabase db query --linked --project-ref uorihhnvmpdczcwwhojw -f <archivo>`.
+- Auth: `supabase/config.toml` (bajado con `supabase config pull`). Site URL y redirecciones apuntan a GitHub Pages; cambios con `supabase config diff` y `supabase config push`.
+- Variables del repo (Actions → Variables): `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (clave publishable). Para desarrollo local, `.env.local` (ver `.env.example`).
+
+Sincronización (`src/sync/`): local primero. Cada cambio entra a una cola persistida y se sube con sesión y conexión; se bajan las filas con `updated_at` posterior a la última bajada. Borrados lógicos con `deleted_at`. Un registro con cambios locales sin subir no se pisa con el del servidor. El tema claro/oscuro no se sincroniza.

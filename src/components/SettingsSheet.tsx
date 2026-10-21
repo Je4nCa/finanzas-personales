@@ -5,6 +5,8 @@ import type { AppData } from '../domain/types'
 import { download, exportMonthToExcel } from '../lib/excel'
 import { selectData, useData, useUi } from '../store/store'
 import { useOverlay } from '../store/ui'
+import { useSyncStatus } from '../sync/status'
+import { AccountSection } from './AccountSection'
 import { Field, Segmented, Sheet } from './ui'
 
 export function SettingsSheet() {
@@ -16,6 +18,7 @@ export function SettingsSheet() {
   const [budget, setBudget] = useState(settings.monthlyBudget ? String(settings.monthlyBudget) : '')
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const email = useSyncStatus((s) => s.email)
 
   const exportExcel = async () => {
     setBusy(true)
@@ -102,6 +105,8 @@ export function SettingsSheet() {
           />
         </Field>
 
+        <AccountSection />
+
         <div className="section-title" style={{ margin: '10px 2px 0' }}>Datos</div>
         <button className="pill-btn glass block" onClick={exportExcel} disabled={busy}>
           <FileSpreadsheet /> {busy ? 'Generando…' : `Exportar Excel — ${monthLabel(month)}`}
@@ -126,7 +131,9 @@ export function SettingsSheet() {
           }}
         />
         <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '4px 4px 0', lineHeight: 1.5 }}>
-          Tus datos se guardan solo en este teléfono. Descargá un respaldo de vez en cuando para no perderlos si borrás el navegador o cambiás de equipo.
+          {email
+            ? 'El respaldo en archivo es opcional: tus datos ya están en la nube.'
+            : 'Sin cuenta, tus datos se guardan solo en este dispositivo. Descargá un respaldo de vez en cuando para no perderlos.'}
         </p>
       </div>
     </Sheet>

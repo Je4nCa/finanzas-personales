@@ -5,3 +5,4 @@ dev-dist
 design-references
 tsconfig.tsbuildinfo
 dist-artifact
+*.local
